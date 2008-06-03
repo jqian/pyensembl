@@ -129,7 +129,7 @@ if __name__ == '__main__': # example code
     annoDB = AnnotationDB(exonSliceDB, srdb, sliceAttrDict=
                           dict(id='seq_region_id',stop='seq_region_end',
                                orientation='seq_region_strand'))
-    e = annoDB[73777]
+    e = annoDB[73777] # exon_id = 73777
     print e.phase, e.end_phase # 1 0
     s = e.sequence
     print str(s) #'GCAAGCTGTGGACAAGAAGTATGAAGGTCGCTTACAGCATTCTACACAAATTAGGCACAAAGCAGGAACCCATGGTCCGGCCTGGAGATAGG'
