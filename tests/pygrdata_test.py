@@ -1,5 +1,7 @@
 
 from nosebase import *
+import nose
+import socket
 
 class PygrDownload_Test(object):
     'save seq db and interval to pygr.Data shelve'
@@ -7,7 +9,10 @@ class PygrDownload_Test(object):
     def setup(self,**kwargs):
         self.tempdir = self.tempDirClass(**kwargs)
         from pygr.downloader import SourceURL
-        s = SourceURL('http://www.doe-mbi.ucla.edu/~leec/test.gz')
+        try:
+            s = SourceURL('http://www.doe-mbi.ucla.edu/~leec/test.gz')
+        except socket.gaierror:
+            raise nose.SkipTest
         s.__doc__ = 'test download'
         import pygr.Data
         pygr.Data.Bio.Test.Download1 = s
@@ -27,6 +32,25 @@ class PygrDownload_Test(object):
     def teardown(self):
         self.tempdir.__del__() # FORCE IT TO RELEASE PYGR DATA
 
+class GenericBuild_Test(object):
+    def generic_build_test(self):
+        'test that GenericBuilder construction of the BlastDB works right'
+        from pygr.downloader import GenericBuilder
+        import pickle
+        gb = GenericBuilder('BlastDB','sp_hbb1')
+        s = pickle.dumps(gb)
+        db = pickle.loads(s) # force construction of the BlastDB
+        assert len(db)==24
+        l = [x for x in db]
+        l.sort()
+        correct = ['HBB0_PAGBO', 'HBB1_ANAMI', 'HBB1_CYGMA', 'HBB1_IGUIG',
+                   'HBB1_MOUSE', 'HBB1_ONCMY', 'HBB1_PAGBO', 'HBB1_RAT',
+                   'HBB1_SPHPU', 'HBB1_TAPTE', 'HBB1_TORMA', 'HBB1_TRICR',
+                   'HBB1_UROHA', 'HBB1_VAREX', 'HBB1_XENBO', 'HBB1_XENLA',
+                   'HBB1_XENTR', 'MYG_DIDMA', 'MYG_ELEMA', 'MYG_ERIEU',
+                   'MYG_ESCGI', 'MYG_GALCR', 'PRCA_ANASP', 'PRCA_ANAVA']
+        correct.sort()
+        assert l ==  correct
 
 class PygrSwissprotBase(object):
     'save seq db and interval to pygr.Data shelve'
@@ -135,6 +159,7 @@ def check_dir(self,correct=['Bio.Annotation.annoDB','Bio.Annotation.map',
     import pygr.Data
     l = pygr.Data.dir('Bio')
     print 'dir:',l
+    correct.sort()
     assert l == correct
 def check_bind(self):
     import pygr.Data
@@ -231,12 +256,17 @@ class XMLRPC_Test(PygrSwissprotBase):
         PygrSwissprotBase.setup(self)
         self.server = TestXMLRPCServer('Bio.Seq.Swissprot.sp42',
                                        'Bio.Seq.frag','Bio.Seq.spmap',
+                                       'Bio.Annotation.annoDB',
+                                       'Bio.Annotation.map',
                                        PYGRDATAPATH=str(self.tempdir))
     def xmlrpc_test(self):
         pygrData = self.server.access_server()
         check_match(self)
-        check_dir(self,correct=['Bio.Seq.Swissprot.sp42','Bio.Seq.frag','Bio.Seq.spmap'])
+        check_dir(self,correct=['Bio.Seq.Swissprot.sp42','Bio.Seq.frag',
+                                'Bio.Seq.spmap','Bio.Annotation.annoDB',
+                                'Bio.Annotation.map'])
         check_bind(self)
+        check_bind2(self)
         from pygr import seqdb
         sp2 = seqdb.BlastDB(self.filename)
         sp2.__doc__ = 'another sp'
