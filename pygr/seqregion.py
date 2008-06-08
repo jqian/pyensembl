@@ -81,6 +81,7 @@ from pygr import sqlgraph
 class EnsemblRow(sqlgraph.TupleO):
     'use this for all Ensembl tables with seq_region_start'
     start = SeqRegionStartDescr()
+    print "hello"
 
 
 class EnsemblMapper(object):
@@ -164,6 +165,7 @@ class AssemblyMapper(object):
         'map to corresponding interval in the target coord system'
         srID = k.id #self.seqRegionInv[k]
         start,stop = k._abs_interval
+       # print ('select t1.* from %s t1, %s t2 where t1.cmp_seq_region_id=%%s and t1.asm_seq_region_id=t2.seq_region_id and t2.coord_system_id=%%s and cmp_start-1<=%%s and cmp_end>=%%s' %(self.assembly,self.srdb.seqRegionDB.name)%(srID,self.targetCoord,start,stop))
         n = self.cursor.execute(
             'select t1.* from %s t1, %s t2 where t1.cmp_seq_region_id=%%s and t1.asm_seq_region_id=t2.seq_region_id and t2.coord_system_id=%%s and cmp_start-1<=%%s and cmp_end>=%%s'
             %(self.assembly,self.srdb.seqRegionDB.name),
