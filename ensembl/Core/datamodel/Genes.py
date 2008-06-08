@@ -55,4 +55,4 @@ if __name__ == '__main__': # example code
     print gene.status #KNOWN
     genedb.getAttributes(2)
 
-    genedb.getExons(24573)
+    #genedb.getExons(24573)

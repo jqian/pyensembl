@@ -8,10 +8,10 @@ class BaseModel(object):
         self.db = dbname
         self.tb = tbname
         self.row = RowObj
-        #self.tbobj =  sqlgraph.SQLTable(self.db+'.'+self.tb, cursor, 
-        #                                itemClass=self.row)
+        self.tbobj =  sqlgraph.SQLTable(self.db+'.'+self.tb, cursor, 
+                                        itemClass=self.row)
 
-        self.tbobj = sqlgraph.SQLTable(self.db+'.'+self.tb, cursor, itemClass=EnsemblRow)
+        #self.tbobj = sqlgraph.SQLTable(self.db+'.'+self.tb, cursor, itemClass=EnsemblRow)
     def __getitem__(self, i):
         return self.tbobj[i]
 

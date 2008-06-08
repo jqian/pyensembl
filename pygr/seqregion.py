@@ -81,7 +81,7 @@ from pygr import sqlgraph
 class EnsemblRow(sqlgraph.TupleO):
     'use this for all Ensembl tables with seq_region_start'
     start = SeqRegionStartDescr()
-    print "hello"
+    #print "hello"
 
 
 class EnsemblMapper(object):
