@@ -3,7 +3,7 @@ from seqregion import *
 from pygr import sqlgraph
 
 class SeqregionTable(BaseModel):
-    'an interface to the seq_region table in the ensembl Core databases'
+    'an interface to the seq_region table in any ensembl Core database'
 
     def __init__(self, dbname, cursor):
         BaseModel.__init__(self, dbname, 'seq_region', sqlgraph.TupleO, cursor)
