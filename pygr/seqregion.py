@@ -10,7 +10,9 @@ class SeqRegionInv(object):
            prefix = self.inverseDB.prefixDict[coord_system_id]
        except KeyError:
            prefix = self.inverseDB.prefixDefault
-       name = k.id[len(prefix):] # remove the prefix from the true identifier
+       if prefix is None:
+           return k.id
+       name = k.id[len(prefix):] # remove the prefix from the identifier
        sr = self.inverseDB.seqRegionDB.select('where coord_system_id=%s and name=%s',
                                               (coord_system_id,name)).next()
        return sr.id # its seq_region_id
@@ -18,7 +20,7 @@ class SeqRegionInv(object):
 
 class SeqRegion(dict):
     '''database proxy to multiple seq databases for Ensembl seq_region table,
-    which maps seq_region_id to many different databases each with a
+    which maps a seq_region_id to many different databases each with a
     distinct coord_system_id.    
     '''
     def __init__(self, seqRegionDB, coordSystems, prefixDict=None,
@@ -28,6 +30,8 @@ class SeqRegion(dict):
     prefixDict: dictionary of the form {coord_system_id:prefix to add
                                                         to sr.name}
     prefixDefault: default prefix to add to sr.name
+    NB: a prefix of "" means sr.name will be used unchanged.
+    NB: a prefix of None means k.id will be used unchanged, ignoring sr.name.
         '''
         self.seqRegionDB = seqRegionDB
         self.coordSystems = coordSystems
@@ -53,9 +57,13 @@ class SeqRegion(dict):
         except KeyError:
             raise KeyError('unknown coordinate system %d' % sr.coord_system_id)
         try: # Ensembl doesn't store correct seqID, so add right prefix
-            seqID = self.prefixDict[sr.coord_system_id] + sr.name
+            prefix = self.prefixDict[sr.coord_system_id]
         except KeyError:
-            seqID = self.prefixDefault + sr.name
+            prefix = self.prefixDefault
+        if prefix is None:
+            seqID = k
+        else:
+            seqID = prefix + sr.name
         s = genome[seqID] # get the actual sequence object
         dict.__setitem__(self, k, s) # save in cache
         return s
@@ -182,9 +190,13 @@ if __name__ == '__main__': # example code
     cursor = conn.cursor()
     seq_region = sqlgraph.SQLTable('homo_sapiens_core_47_36i.seq_region',
                                    cursor) 
+    dna = sqlgraph.SQLTable('homo_sapiens_core_47_36i.dna', cursor, 
+                            itemClass=EnsemblDNA,
+                            itemSliceClass=seqdb.SeqDBSlice,
+                            attrAlias=dict(seq='sequence'))
     import pygr.Data
     hg18 = pygr.Data.Bio.Seq.Genome.HUMAN.hg18() # human genome
-    srdb = SeqRegion(seq_region, {17:hg18})
+    srdb = SeqRegion(seq_region, {17:hg18, 4:dna}, {17:'chr',4:None})
     chr1 = srdb[226034]
     print len(chr1) # 247249719
     exonSliceDB = sqlgraph.SQLTable('homo_sapiens_core_47_36i.exon',
@@ -195,16 +207,31 @@ if __name__ == '__main__': # example code
     annoDB = AnnotationDB(exonSliceDB, srdb, sliceAttrDict=
                           dict(id='seq_region_id',stop='seq_region_end',
                                orientation='seq_region_strand'))
-    e = annoDB[73777] # exon_id = 73777
+    e = annoDB[73777]
     print e.phase, e.end_phase # 1 0
     s = e.sequence
     print str(s) #'GCAAGCTGTGGACAAGAAGTATGAAGGTCGCTTACAGCATTCTACACAAATTAGGCACAAAGCAGGAACCCATGGTCCGGCCTGGAGATAGG'
     print str(s.before()[-10:]) # 'GTATTCATAG' last 2 nt is splice-site
     print str(s.after()[:10]) # 'GTAAGTGCAA' first 2 nt is splice-site
-    mapper = EnsemblMapper(annoDB, srdb) # 
+    mapper = EnsemblMapper(annoDB, srdb) # find exons for any sequence slice
     ival = chr1[:100000]
     print mapper[ival] # find exons in this interval
     print 'neg:', mapper[-ival] # forces annotations to opposite ori...
+    s = dna[143909] # get this sequence object
+    print len(s) # 41877
+    print str(s[:10]) # CACCCTGCCC
+    amap = AssemblyMapper(srdb, 4, 17) # test the assembly mapper
+    contig = srdb[149878] # get a contig
+    c = contig[:10] # a short slice of its beginning
+    u = amap[c] # map forwards it to hg18
+    print str(c) # 'ACCCCTTACC'
+    print str(u) # 'accccttacc'
+    print c.orientation # 1
+    print u.orientation # -1
+    ival = chr1[1000000:1000010] # get an hg18 interval
+    c = (~amap)[ival] # map back to contig interval
+    print repr(ival), repr(c) # chr1[1000000:1000010] 158512[13848:13858]
+    print str(ival), str(c) # ACGTGGCTGC ACGTGGCTGC
 
     #conn.close()
 
