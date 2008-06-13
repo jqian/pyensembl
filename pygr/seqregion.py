@@ -108,7 +108,6 @@ class EnsemblMapper(object):
             l.append(aslice)
         return l
 
-<<<<<<< HEAD:pygr/seqregion.py
 from pygr import seqdb
 class EnsemblDNA(seqdb.DNASQLSequence):
     'interpret row objects as sequence object a la Ensembl dna table'
@@ -175,9 +174,6 @@ class AssemblyMapper(object):
         return u
     def __invert__(self):
         return self.inverseDB
-=======
->>>>>>> master:pygr/seqregion.py
-
 
 
 if __name__ == '__main__': # example code
