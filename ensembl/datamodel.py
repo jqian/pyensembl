@@ -80,7 +80,7 @@ class Sliceable(BaseModel):
                                    orientation='seq_region_strand'))
         return annoDB
 
-    def getSeqregionSeq(self):
+    def _getSeqregionSeq(self):
         '''obtain the sequence of a seq_region for a sliceable object.
         This seq_region is defined by seq_region_id, seq_region_start, seq_region_end and seq_region_strand.
         '''
@@ -120,7 +120,7 @@ class Sliceable(BaseModel):
         # find exons for any sequence slice
         mapper = EnsemblMapper(annoDB, srdb)
         # Obtain a sequence interval object based on the seq_region defined for a gene or a transcript record.  The seq_region interval is described by seq_region_id, seq_region_start, seq_region_end and seq_region_strand.
-        ival = self.getSeqregionSeq()
+        ival = self._getSeqregionSeq()
         # find exons in this sequence interval
         exon_list = mapper[ival] 
 
