@@ -106,7 +106,6 @@ chromosome, start, end, strand).
         
         return unit_list
 
-    
 
 class Adaptor(object):
     '''A base class that provides access to a generic table in a core ensembl   
@@ -177,7 +176,24 @@ class TranscriptAdaptor(Adaptor):
             print 'no transcript found on this strand(', strand, ')'
         return transcripts
     
-    #def fetch_transcript_by_something(self, something):
+    def fetch_transcripts_by_geneID(self, gene_id):
+        'obtain all the transcripts that share the given gene_id'
+
+        cursor = self.cursor
+        #print 'select transcript_id from %s.transcript where gene_id = %s' %(self.db, gene_id)
+        n = cursor.execute('select transcript_id from %s.transcript where gene_id = %%s' %(self.db), (gene_id))
+        #n = cursor.execute('select transcript_id from %s.transcript where gene_id = %s' %(self.db, gene_id))
+
+        t = cursor.fetchall()
+        #print t
+        transcripts = []
+        if len(t) == 0:
+            return transcripts
+        else:
+            for row in t:
+                t = Transcript(row[0])
+                transcripts.append(t)
+            return transcripts
 
 
 
@@ -209,7 +225,7 @@ class GeneAdaptor(Adaptor):
 if __name__ == '__main__': # example code
     
     driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
-    
+    '''
     exon_adaptor = driver.getAdaptor('exon')
     #exons = exon_adaptor.fetch_exons_by_seqregion(1, 6023217, 6023986, 1, driver)
     #exons = exon_adaptor.fetch_exons_by_seqregion(10, 444866, 444957, -1, driver)
@@ -224,18 +240,30 @@ if __name__ == '__main__': # example code
         print '\ngene', index
         g.getAttributes()
         g.getSequence('gene')
-
+    '''
     transcript_adaptor = driver.getAdaptor('transcript')
+    '''
     transcripts = transcript_adaptor.fetch_transcripts_by_seqregion(1, 4274, 19669, -1, driver) 
     for index, t in enumerate(transcripts):
         print '\ntranscript', index
         t.getAttributes()
         #t.getSequence('transcript')
+    '''
+    print '\ntranscript_adaptor.fetch_transcripts_by_geneID(gene_id):'
+    transcripts = transcript_adaptor.fetch_transcripts_by_geneID(34)
+    if len(transcripts) == 0:
+        print '\nNo transcript identified for this gene.'
+    else:
+        for index, t in enumerate(transcripts):
+            print '\ntranscript ', index, ':'
+            t.getAttributes()
+            print 'length: ', len(t.getSequence('transcript'))
     
+    '''
     #s = driver.fetch_sequence_by_region(1, 4274, 19669, 1)
     s = driver.fetch_sequence_by_region(10, 444866, 444957, 1)
     print "\nLength of the sequence: ", len(s)
     print "The sequence: ", str(s)
-    
+    '''
 
 
