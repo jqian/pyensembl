@@ -2,13 +2,26 @@ from ensembl.adaptor import *
 
 
 
+def _getDriver():
+    '''Obtain an ensembl database connection.  
+    Thus, in order to connect to a different database, this is the only place needs to be modified!'
+    '''
+    
+    # Weird...but Python somehow "forgot" the definition and location of getDriver
+    from ensembl.adaptor import getDriver
+    return getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
+
+
+
 class BaseModel(object):
     '''A generic interface to a row object in a table in a core ensembl database
     '''
     
     def __init__(self, tbname, i):
-        driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
-        self.rowobj = driver.getAdaptor(tbname)[i] 
+        
+        driver = _getDriver()
+        self.rowobj = driver.getAdaptor(tbname)[i]
+        self.driver = driver
 
     def getAttributes(self):
         'print out this row record'
@@ -59,8 +72,7 @@ class Sliceable(BaseModel):
     def _getSeqregionDB(self):      
         'a private helper method to create a seq_region database object'
 
-        driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
-        seq_regiontb = driver.getAdaptor('seq_region').tbobj
+        seq_regiontb = self.driver.getAdaptor('seq_region').tbobj
         import pygr.Data
         hg18 = pygr.Data.Bio.Seq.Genome.HUMAN.hg18() # human genome
         srdb = SeqRegion(seq_regiontb, {17:hg18}, {17:'chr'})
@@ -70,8 +82,7 @@ class Sliceable(BaseModel):
     def _getAnnotationDB(self, unit_tbname):
         'a private helper method to create an annotation db object'
 
-        driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
-        unit_TB = driver.getAdaptor(unit_tbname).tbobj
+        unit_TB = self.driver.getAdaptor(unit_tbname).tbobj
         # obtain a seq_region db object
         srdb = self._getSeqregionDB()
         from pygr.seqdb import AnnotationDB
@@ -112,7 +123,7 @@ class Sliceable(BaseModel):
         
     def getExons(self):
         'Find exons of a gene or a transcript object.'
-        driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
+ 
         # obtain a seq_region database object
         srdb =self._getSeqregionDB()
         # obtain an annotation database object
@@ -206,6 +217,9 @@ class Transcript(Sliceable):
     def __init__(self, i):
         Sliceable.__init__(self, 'transcript', i)
 
+    def getGeneID(self):
+        return self.rowobj.gene_id
+
     #def getExternalRefs(self):
     #    return getExternalRefs(true);
 
@@ -215,7 +229,12 @@ class Transcript(Sliceable):
 
     #def getModifiedDate(self):
 
-    #def getGene(self):
+    def getGene(self):
+        'obtain its gene'
+
+        gene_id = self.getGeneID()
+        gene = Gene(gene_id)
+        return gene
 
     #def getTranslation(self):
 
@@ -225,18 +244,21 @@ class Transcript(Sliceable):
 
     #def getAnalysis(self):
 
-    #def getGene(self):
-
 
 class Gene(Sliceable):
     '''An interface to a gene record in the gene table in an ensembl core database'''
 
     def __init__(self, i):
         Sliceable.__init__(self, 'gene', i)
-
+       
     def getTranscripts(self):
         'return transcripts if available, otherwise empty list'
 
+        gene_id = self.rowobj.gene_id
+        transcript_adaptor = self.driver.getAdaptor('transcript')
+        transcripts = transcript_adaptor.fetch_transcripts_by_geneID(gene_id)
+        return transcripts
+    
     def getExternalRefs(self):
         '''References to external databases.  They are a collection of all the 
         transcript.externalRefs.
@@ -267,7 +289,7 @@ def _sliceable_tester(classobj):
     
     
 if __name__ == '__main__': # example code
-    
+
     print '\ntest results for the Seqregion class:'
     seq_region = Seqregion(143909)
     print '\nseq_region.getAttributes():'
@@ -289,9 +311,10 @@ if __name__ == '__main__': # example code
     print str(exon_sequence)
     print '\nthe length of this exon sequence:', len(exon_sequence)
     print '\nexon.getExons():', exon.getExons()
-
+    
     print '\n\ntest results for the Gene class:'
-    gene = Gene(34)
+    gene = Gene(121)
+    
     _sliceable_tester(gene)
     print '\nmethods unique to the Gene class:'
     print '\ngene.getSequence(\'gene\')'   
@@ -308,7 +331,18 @@ if __name__ == '__main__': # example code
             print 'EndPhase:', e.getEndPhase()
             #print 'Sequence:', str(e.getSequence())
             print 'Length of the sequence:', len(e.getSequence('exon'))
-    
+            
+    print '\ngene.getTranscripts():'
+    transcripts = gene.getTranscripts()
+    if len(transcripts) == 0:
+        print '\nNo transcript identified for this gene.'
+    else:
+        for index, t in enumerate(transcripts):
+            print '\ntranscript ', index, ':'
+            t.getAttributes()
+            print 'length: ', len(t.getSequence('transcript'))
+            
+       
     print '\n\ntest results for the Transcript class:'
     transcript = Transcript(76)
     _sliceable_tester(transcript)
@@ -327,4 +361,12 @@ if __name__ == '__main__': # example code
             print 'EndPhase:', e.getEndPhase()
             #print 'Sequence:', str(e.getSequence())
             print 'Length of the sequence:', len(e.getSequence('exon'))
+
+    # get the gene corresponding to this transcript
+    print '\ntranscript.getGene():'
+    gene = transcript.getGene()
+    print 'The id of its gene:', gene.rowobj.gene_id
+    s = gene.getSequence('gene')
+    print '\nThe sequence of its gene:', str(s)
+    print '\nThe length of its gene:', len(s)
     
