@@ -18,7 +18,7 @@ class Driver (object):
     def __init__(self, host, user, dbname):
         self.conn = MySQLdb.connect(host, user)
         self.db = dbname
-        self.tb_adaptor = {'exon': ExonAdaptor, 'gene': GeneAdaptor, 'transcript': TranscriptAdaptor, 'seq_region': SeqregionAdaptor}
+        self.tb_adaptor = {'exon': ExonAdaptor, 'gene': GeneAdaptor, 'transcript': TranscriptAdaptor, 'seq_region': SeqregionAdaptor, 'translation': TranslationAdaptor, 'gene_stable_id': GeneStableIdAdaptor, 'transcript_stable_id': TranscriptStableIdAdaptor, 'translation_stable_id': TranslationStableIdAdaptor, 'exon_stable_id': ExonStableIdAdaptor}
 
     def getAdaptor(self, tbname):    
         adaptor_name = self.tb_adaptor[tbname]
@@ -121,6 +121,53 @@ class Adaptor(object):
 
     def __getitem__(self, i):
         return self.tbobj[i]
+
+
+
+class ExonTranscriptAdaptor(Adaptor):
+    '''Provides access to the exon_transcript table in an ensembl core database'''
+
+    def __init__(self, dbname, cursor):
+        Adaptor.__init__(self, dbname, 'exon_transcript', sqlgraph.TupleO, cursor)
+
+
+
+class TranslationAdaptor(Adaptor):
+    '''Provides access to the translation table in an ensembl core database'''
+
+    def __init__(self, dbname, cursor):
+        Adaptor.__init__(self, dbname, 'translation', sqlgraph.TupleO, cursor)
+
+
+class GeneStableIdAdaptor(Adaptor):
+    '''Provides access to the gene_stable_id table in an ensembl core database'''
+
+    def __init__(self, dbname, cursor):
+        Adaptor.__init__(self, dbname, 'gene_stable_id', sqlgraph.TupleO, cursor)
+
+
+class TranscriptStableIdAdaptor(Adaptor):
+    '''Provides access to the transcript_stable_id table in an ensembl core database'''
+
+    def __init__(self, dbname, cursor):
+        Adaptor.__init__(self, dbname, 'transcript_stable_id', sqlgraph.TupleO, cursor)
+
+
+
+class TranslationStableIdAdaptor(Adaptor):
+    '''Provides access to the translation_stable_id table in an ensembl core database'''
+
+    def __init__(self, dbname, cursor):
+        Adaptor.__init__(self, dbname, 'translation_stable_id', sqlgraph.TupleO, cursor)
+
+
+
+class ExonStableIdAdaptor(Adaptor):
+    '''Provides access to the exon_stable_id table in an ensembl core database'''
+
+    def __init__(self, dbname, cursor):
+        Adaptor.__init__(self, dbname, 'exon_stable_id', sqlgraph.TupleO, cursor)
+
 
 
 class SeqregionAdaptor(Adaptor):
