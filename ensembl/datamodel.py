@@ -29,6 +29,88 @@ class BaseModel(object):
 	    print k, ' = ', self.rowobj.data[v]
 
 
+'''
+class ExonTranscript(BaseModel):
+    'An interface to a exon_transcript record in the exon_transcript table in any ensembl core database'
+
+    def __init__(self, i):
+        BaseModel.__init__(self, 'exon_transcript', i)
+
+    def getExonID(self, i):
+        return self.rowobj.exon_id
+
+    def getTranscriptID(self, i):
+        return self.rowobj.transcript_id
+
+    def getRank(self, i):
+        return self.rowobj.rank
+'''
+
+
+class Translation(BaseModel):
+    '''An interface to a translation record in the translation table in any ensmbl core database'''
+
+    def __init__(self, i):
+        BaseModel.__init__(self, 'translation', i)
+
+    def getTranscriptID(self):
+       return self.rowobj.transcript_id
+
+    def get_start_exon_id(self):
+        return self.rowobj.start_exon_id
+
+    def get_end_exon_id(self):
+        return self.rowobj.end_exon_id
+
+
+
+class StableID(BaseModel):
+    '''An interface to a generic stable_id record in a generic stable_id table in any ensembl core database'''
+
+    def __init__(self, tbname, i):
+        BaseModel.__init__(self, tbname, i)
+
+    def getStableID(self):
+        return self.rowobj.stable_id
+
+    def getVersion(self):
+        return self.rowobj.version
+
+    def get_created_date(self):
+        return self.rowobj.created_date
+
+    def get_modified_date(self):
+        return self.rowobj.modified_date
+
+
+class GeneStableID(StableID):
+    '''An interface to a record in the gene_stable_id table in any ensembl core database'''
+
+    def __init__(self, i):
+        StableID.__init__(self, 'gene_stable_id', i)
+
+
+class TranscriptStableID(StableID):
+    '''An interface to a record in the transcript_stable_id table in any ensembl core database'''
+
+    def __init__(self, i):
+        StableID.__init__(self, 'transcript_stable_id', i)
+
+
+class ExonStableID(StableID):
+    '''An interface to a record in the exon_stable_id table in any ensembl core database'''
+
+    def __init__(self, i):
+        StableID.__init__(self, 'exon_stable_id', i)
+
+
+class TranslationStableID(StableID):
+    '''An interface to a record in the translation_stable_id table in any ensembl core database'''
+
+    def __init__(self, i):
+        StableID.__init__(self, 'translation_stable_id', i)
+
+
 
 class Seqregion(BaseModel):
     '''An interface to a seq_region record in the seq_region table in any 
@@ -287,9 +369,19 @@ def _sliceable_tester(classobj):
     print '\nis_current():', classobj.is_current()
     print '\nisknown():', classobj.isKnown()  
     
-    
-if __name__ == '__main__': # example code
+def _stableID_tester(classobj):
+    '''A private helper method to test all the functions defined in the StableID class when invoked by a specialized StableID object.'''
 
+    print '\ngetAttributes():'
+    classobj.getAttributes()
+    print '\ngetStableID():', classobj.getStableID()
+    print '\ngetVersion():', classobj.getVersion()
+    print '\nget_created_date():', classobj.get_created_date()
+    print '\nget_modified_date():', classobj.get_modified_date()
+
+
+if __name__ == '__main__': # example code
+    '''
     print '\ntest results for the Seqregion class:'
     seq_region = Seqregion(143909)
     print '\nseq_region.getAttributes():'
@@ -369,4 +461,28 @@ if __name__ == '__main__': # example code
     s = gene.getSequence('gene')
     print '\nThe sequence of its gene:', str(s)
     print '\nThe length of its gene:', len(s)
+    '''
+
+    print '\ntest results for the Translation class:'
+    translation = Translation(15121)
+    print '\ntranslation.getAttributes():'
+    translation.getAttributes()
+    print '\ntranslation.getTranscriptID:', translation.getTranscriptID()
+    print '\ntranslation.get_start_exon_id:', translation.get_start_exon_id()
+    print '\ntranslation.get_end_exon_id:', translation.get_end_exon_id()
+
+    print '\ntest results for the GeneStableID class:'
+    gene_stable_id = GeneStableID(8946)
+    _stableID_tester(gene_stable_id)
+
+    print '\ntest results for the TranscriptStableID class:'
+    transcript_stable_id = TranscriptStableID(15960)
+    _stableID_tester(transcript_stable_id)
     
+    print '\ntest results for the ExonStableID class:'
+    exon_stable_id = ExonStableID(1)
+    _stableID_tester(exon_stable_id)
+
+    print '\ntest results for the TranslationStableID class:'
+    translation_stable_id = TranslationStableID(1)
+    _stableID_tester(translation_stable_id)
