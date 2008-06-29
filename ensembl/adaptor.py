@@ -123,13 +123,13 @@ class Adaptor(object):
         return self.tbobj[i]
 
 
-
+'''
 class ExonTranscriptAdaptor(Adaptor):
-    '''Provides access to the exon_transcript table in an ensembl core database'''
+    'Provides access to the exon_transcript table in an ensembl core database'
 
     def __init__(self, dbname, cursor):
         Adaptor.__init__(self, dbname, 'exon_transcript', sqlgraph.TupleO, cursor)
-
+'''
 
 
 class TranslationAdaptor(Adaptor):
