@@ -199,8 +199,41 @@ class ExonAdaptor(Adaptor):
             print 'no exons found on this strand(', strand, ')'
         return exons
 
-    #def fetch_exon_by_something(self, something):
+    def fetch_exons_by_transcriptID(self, transcript_id):
+	cursor = self.cursor
+        n = cursor.execute('select exon_id from %s.exon_transcript where transcript_id = %s' %(self.db, transcript_id))
+        t = cursor.fetchall()
+        exons = []
+        if n == 0:
+            return exons
+        for row in t:
+            e = Exon(row[0])
+            exons.append(e)
+        return exons
 
+    def fetch_exons_by_translation(self, transcript_id, start_exon_id, end_exon_id):
+        
+        cursor = self.cursor
+        n = cursor.execute('select rank from %s.exon_transcript where transcript_id = %%s and exon_id = %%s' %(self.db), (transcript_id, start_exon_id))
+        t = cursor.fetchall()
+        if n != 1:
+            raise KeyError('Warning: duplicated!')
+        start_rank = t[0][0]
+        n = cursor.execute('select rank from %s.exon_transcript where transcript_id = %%s and exon_id = %%s' %(self.db), (transcript_id, end_exon_id))
+        t = cursor.fetchall()
+        if n != 1:
+            raise KeyError('Warning: duplicated!')
+        end_rank = t[0][0]
+        
+        n = cursor.execute('select exon_id from %s.exon_transcript where transcript_id = %%s and rank >= %%s and rank <= %%s' %(self.db), (transcript_id, start_rank, end_rank))
+        t = cursor.fetchall()
+        exons = []
+        if n == 0:
+            return exons
+        for row in t:
+            e = Exon(row[0])
+            exons.append(e)
+        return exons
 
 class TranscriptAdaptor(Adaptor):
     'Provides access to the transcript table in an ensembl core database'
@@ -234,7 +267,7 @@ class TranscriptAdaptor(Adaptor):
         t = cursor.fetchall()
         #print t
         transcripts = []
-        if len(t) == 0:
+        if n == 0:
             return transcripts
         else:
             for row in t:
