@@ -22,7 +22,7 @@ class BaseModel(object):
         driver = _getDriver()
         self.rowobj = driver.getAdaptor(tbname)[i]
         self.driver = driver
-
+        
     def getAttributes(self):
         'print out this row record'
 	for k, v in self.rowobj._attrcol.iteritems():
@@ -62,7 +62,16 @@ class Translation(BaseModel):
     def get_end_exon_id(self):
         return self.rowobj.end_exon_id
 
-
+    def getExons(self):
+        transcript_id = self.rowobj.transcript_id
+        start_exon_id = self.get_start_exon_id()
+        end_exon_id = self.get_end_exon_id()
+        driver = self.driver
+        exon_adaptor = driver.getAdaptor('exon')
+        exons = exon_adaptor.fetch_exons_by_translation(transcript_id, start_exon_id, end_exon_id)
+        return exons
+        
+        
 
 class StableID(BaseModel):
     '''An interface to a generic stable_id record in a generic stable_id table in any ensembl core database'''
@@ -302,6 +311,15 @@ class Transcript(Sliceable):
     def getGeneID(self):
         return self.rowobj.gene_id
 
+    def getExons(self):
+        'obtain all the exons of this transcript'
+
+        transcript_id = self.rowobj.id
+        driver = self.driver
+        exon_adaptor = driver.getAdaptor('exon')
+        exons = exon_adaptor.fetch_exons_by_transcriptID(transcript_id)
+        return exons
+
     #def getExternalRefs(self):
     #    return getExternalRefs(true);
 
@@ -341,6 +359,18 @@ class Gene(Sliceable):
         transcripts = transcript_adaptor.fetch_transcripts_by_geneID(gene_id)
         return transcripts
     
+    def getExons(self):
+        'Obtain all the exons for each of its transcripts'
+
+        transcript_exon_dict = {}
+        transcripts = self.getTranscripts()
+        if len(transcripts) == 0:
+            return transcript_exon_dict
+        for t in transcripts:
+            exons = t.getExons()
+            transcript_exon_dict[t] = exons
+        return transcript_exon_dict
+        
     def getExternalRefs(self):
         '''References to external databases.  They are a collection of all the 
         transcript.externalRefs.
@@ -379,6 +409,18 @@ def _stableID_tester(classobj):
     print '\nget_created_date():', classobj.get_created_date()
     print '\nget_modified_date():', classobj.get_modified_date()
 
+def _getExons_tester(exons):
+    'retrieve and print out all the exons returned by the *.getExons()'  
+  
+    if len(exons) == 0:
+        print '\nno exon returned'
+    else:
+        for index, e in enumerate(exons):
+            print '\nexon ', index, ':'
+            e.getAttributes()
+            #print 'Sequence:', str(e.getSequence())
+            print 'Length of the sequence:', len(e.getSequence('exon'))
+
 
 if __name__ == '__main__': # example code
     '''
@@ -403,27 +445,27 @@ if __name__ == '__main__': # example code
     print str(exon_sequence)
     print '\nthe length of this exon sequence:', len(exon_sequence)
     print '\nexon.getExons():', exon.getExons()
-    
+    '''
     print '\n\ntest results for the Gene class:'
-    gene = Gene(121)
-    
+    #gene = Gene(121)
+    gene = Gene(8946)
+    '''
     _sliceable_tester(gene)
     print '\nmethods unique to the Gene class:'
     print '\ngene.getSequence(\'gene\')'   
     gene_sequence = gene.getSequence('gene')
     print str(gene_sequence)
     print '\nthe length of this gene sequence:', len(gene_sequence)
+    '''
     print '\ngene.getExons():' 
-    exons = gene.getExons()
+    transcript_exon_dict = gene.getExons()
     # retrieve and print out all the exons returned by the gene.getExons()    
-    for index, e in enumerate(exons):
-            print '\nexon ', index, ':'
-            e.getAttributes()
-            print 'Phase:', e.getPhase()
-            print 'EndPhase:', e.getEndPhase()
-            #print 'Sequence:', str(e.getSequence())
-            print 'Length of the sequence:', len(e.getSequence('exon'))
-            
+    if len(transcript_exon_dict) == 0:
+        print 'No transcript and therefore no exon identified for this gene.'
+    for k, v in transcript_exon_dict.iteritems():
+            print '\nall the exons in transcript', k.rowobj.id, ':'
+            _getExons_tester(v)
+    '''        
     print '\ngene.getTranscripts():'
     transcripts = gene.getTranscripts()
     if len(transcripts) == 0:
@@ -434,26 +476,22 @@ if __name__ == '__main__': # example code
             t.getAttributes()
             print 'length: ', len(t.getSequence('transcript'))
             
-       
+        
     print '\n\ntest results for the Transcript class:'
-    transcript = Transcript(76)
+    #transcript = Transcript(76)
+    transcript = Transcript(15960)
     _sliceable_tester(transcript)
     print '\nmethods unique to the Transcript class:'
     print '\ntranscript.getSequence(\'transcript\')'   
     transcript_sequence = transcript.getSequence('transcript')
     print str(transcript_sequence)
     print '\nthe length of this transcript sequence:', len(transcript_sequence)
+   
     print '\ntranscript.getExons():' 
     exons = transcript.getExons()
     # retrieve and print out all the exons returned by the transcript.getExons()    
-    for index, e in enumerate(exons):
-            print '\nexon ', index, ':'
-            e.getAttributes()
-            print 'Phase:', e.getPhase()
-            print 'EndPhase:', e.getEndPhase()
-            #print 'Sequence:', str(e.getSequence())
-            print 'Length of the sequence:', len(e.getSequence('exon'))
-
+    _getExons_tester(exons)
+        
     # get the gene corresponding to this transcript
     print '\ntranscript.getGene():'
     gene = transcript.getGene()
@@ -461,7 +499,6 @@ if __name__ == '__main__': # example code
     s = gene.getSequence('gene')
     print '\nThe sequence of its gene:', str(s)
     print '\nThe length of its gene:', len(s)
-    '''
 
     print '\ntest results for the Translation class:'
     translation = Translation(15121)
@@ -470,7 +507,10 @@ if __name__ == '__main__': # example code
     print '\ntranslation.getTranscriptID:', translation.getTranscriptID()
     print '\ntranslation.get_start_exon_id:', translation.get_start_exon_id()
     print '\ntranslation.get_end_exon_id:', translation.get_end_exon_id()
-
+    print '\ntranslation.getExons():'
+    exons = translation.getExons()
+    _getExons_tester(exons)
+ 
     print '\ntest results for the GeneStableID class:'
     gene_stable_id = GeneStableID(8946)
     _stableID_tester(gene_stable_id)
@@ -486,3 +526,4 @@ if __name__ == '__main__': # example code
     print '\ntest results for the TranslationStableID class:'
     translation_stable_id = TranslationStableID(1)
     _stableID_tester(translation_stable_id)
+    '''
