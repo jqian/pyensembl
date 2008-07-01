@@ -138,6 +138,17 @@ class TranslationAdaptor(Adaptor):
     def __init__(self, dbname, cursor):
         Adaptor.__init__(self, dbname, 'translation', sqlgraph.TupleO, cursor)
 
+    def fetch_translations_by_transcriptID(self, transcript_id):
+        cursor = self.cursor
+        n = cursor.execute('select translation_id from %s.translation where transcript_id = %s' %(self.db, transcript_id))
+        t = cursor.fetchall()
+        translations = []
+        for row in t:
+            translation = Translation(row[0])
+            translations.append(translation)
+        return translations
+
+
 
 class GeneStableIdAdaptor(Adaptor):
     '''Provides access to the gene_stable_id table in an ensembl core database'''
@@ -234,6 +245,7 @@ class ExonAdaptor(Adaptor):
             e = Exon(row[0])
             exons.append(e)
         return exons
+
 
 class TranscriptAdaptor(Adaptor):
     'Provides access to the transcript table in an ensembl core database'
