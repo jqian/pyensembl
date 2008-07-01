@@ -29,23 +29,6 @@ class BaseModel(object):
 	    print k, ' = ', self.rowobj.data[v]
 
 
-'''
-class ExonTranscript(BaseModel):
-    'An interface to a exon_transcript record in the exon_transcript table in any ensembl core database'
-
-    def __init__(self, i):
-        BaseModel.__init__(self, 'exon_transcript', i)
-
-    def getExonID(self, i):
-        return self.rowobj.exon_id
-
-    def getTranscriptID(self, i):
-        return self.rowobj.transcript_id
-
-    def getRank(self, i):
-        return self.rowobj.rank
-'''
-
 
 class Translation(BaseModel):
     '''An interface to a translation record in the translation table in any ensmbl core database'''
@@ -211,7 +194,7 @@ class Sliceable(BaseModel):
         unitobj = annoDB[unitID]
         s = unitobj.sequence
         return s
-        
+    '''    
     def getExons(self):
         'Find exons of a gene or a transcript object.'
  
@@ -239,7 +222,7 @@ class Sliceable(BaseModel):
                     e = Exon(annobj.id)
                     exons.append(e)
         return exons
-
+    '''    
     def getAnalysisID(self):
         return self.rowobj.analysis_id
         
@@ -336,9 +319,13 @@ class Transcript(Sliceable):
         gene = Gene(gene_id)
         return gene
 
-    #def getTranslation(self):
-
-    #def getSequence(self):
+    def getTranslations(self):
+        'obtain its translation'
+        
+        translation_adaptor = self.driver.getAdaptor('translation')
+        transcript_id = self.rowobj.transcript_id
+        translations = translation_adaptor.fetch_translations_by_transcriptID(transcript_id)
+        return translations
 
     #def getSupportingFeatures(self):
 
@@ -370,6 +357,18 @@ class Gene(Sliceable):
             exons = t.getExons()
             transcript_exon_dict[t] = exons
         return transcript_exon_dict
+
+    def getTranslations(self):
+        'Obtain all the translations for each of its transcripts'
+        
+        transcript_translation_dict = {}
+        transcripts = self.getTranscripts()
+        if len(transcripts) == 0:
+            return transcript_translation_dict
+        for t in transcripts:
+            translations = t.getTranslations()
+            transcript_translation_dict[t] = translations
+        return transcript_translation_dict
         
     def getExternalRefs(self):
         '''References to external databases.  They are a collection of all the 
@@ -456,7 +455,6 @@ if __name__ == '__main__': # example code
     gene_sequence = gene.getSequence('gene')
     print str(gene_sequence)
     print '\nthe length of this gene sequence:', len(gene_sequence)
-    '''
     print '\ngene.getExons():' 
     transcript_exon_dict = gene.getExons()
     # retrieve and print out all the exons returned by the gene.getExons()    
@@ -464,8 +462,7 @@ if __name__ == '__main__': # example code
         print 'No transcript and therefore no exon identified for this gene.'
     for k, v in transcript_exon_dict.iteritems():
             print '\nall the exons in transcript', k.rowobj.id, ':'
-            _getExons_tester(v)
-    '''        
+            _getExons_tester(v)        
     print '\ngene.getTranscripts():'
     transcripts = gene.getTranscripts()
     if len(transcripts) == 0:
@@ -474,8 +471,27 @@ if __name__ == '__main__': # example code
         for index, t in enumerate(transcripts):
             print '\ntranscript ', index, ':'
             t.getAttributes()
-            print 'length: ', len(t.getSequence('transcript'))
-            
+            print 'length: ', len(t.getSequence('transcript'))   
+    '''
+# retrieve and print out all the translations returned by the gene.getTranslations()    
+    transcript_translation_dict = gene.getTranslations()
+    if len(transcript_translation_dict) == 0:
+        print 'No transcript and therefore no translation identified for this gene.'
+    for k, v in transcript_translation_dict.iteritems():
+            print '\nall the translations in transcript', k.rowobj.id, ':'
+            for index, tln in enumerate(v):
+                print '\ntranslation', index, ':'
+                tln.getAttributes()
+    '''
+    print '\ngene.getTranscripts():'
+    transcripts = gene.getTranscripts()
+    if len(transcripts) == 0:
+        print '\nNo transcript identified for this gene.'
+    else:
+        for index, t in enumerate(transcripts):
+            print '\ntranscript ', index, ':'
+            t.getAttributes()
+            print 'length: ', len(t.getSequence('transcript'))       
         
     print '\n\ntest results for the Transcript class:'
     #transcript = Transcript(76)
@@ -491,7 +507,13 @@ if __name__ == '__main__': # example code
     exons = transcript.getExons()
     # retrieve and print out all the exons returned by the transcript.getExons()    
     _getExons_tester(exons)
-        
+   
+    print '\ntranscript.getTranslations():'
+    translations = transcript.getTranslations()
+    for index, t in enumerate(translations):
+        print '\ntranslation', index, ':'
+        t.getAttributes()
+
     # get the gene corresponding to this transcript
     print '\ntranscript.getGene():'
     gene = transcript.getGene()
