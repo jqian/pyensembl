@@ -18,7 +18,7 @@ class Driver (object):
     def __init__(self, host, user, dbname):
         self.conn = MySQLdb.connect(host, user)
         self.db = dbname
-        self.tb_adaptor = {'exon': ExonAdaptor, 'gene': GeneAdaptor, 'transcript': TranscriptAdaptor, 'seq_region': SeqregionAdaptor, 'translation': TranslationAdaptor, 'gene_stable_id': GeneStableIdAdaptor, 'transcript_stable_id': TranscriptStableIdAdaptor, 'translation_stable_id': TranslationStableIdAdaptor, 'exon_stable_id': ExonStableIdAdaptor}
+        self.tb_adaptor = {'exon': ExonAdaptor, 'gene': GeneAdaptor, 'transcript': TranscriptAdaptor, 'seq_region': SeqregionAdaptor, 'translation': TranslationAdaptor, 'gene_stable_id': GeneStableIdAdaptor, 'transcript_stable_id': TranscriptStableIdAdaptor, 'translation_stable_id': TranslationStableIdAdaptor, 'exon_stable_id': ExonStableIdAdaptor, 'xref': XrefAdaptor}
 
     def getAdaptor(self, tbname):    
         adaptor_name = self.tb_adaptor[tbname]
@@ -130,6 +130,14 @@ class ExonTranscriptAdaptor(Adaptor):
     def __init__(self, dbname, cursor):
         Adaptor.__init__(self, dbname, 'exon_transcript', sqlgraph.TupleO, cursor)
 '''
+
+
+class XrefAdaptor(Adaptor):
+    '''Provides access to the xref table in an ensembl core database'''
+
+    def __init__(self, dbname, cursor):
+        Adaptor.__init__(self, dbname, 'xref', sqlgraph.TupleO, cursor)
+
 
 
 class TranslationAdaptor(Adaptor):
@@ -310,7 +318,31 @@ class GeneAdaptor(Adaptor):
             print 'no gene found on this strand(', strand, ')'
         return genes
     
-    #def fetch_genes_by_something(self, something):
+    def fetch_genes_by_externalRef(self, external_ref_label):
+        '''Retrieve all the genes that are associated with a particular external reference'''
+
+        # Retrieve xref_id(s) that are associated with this external reference
+        cursor = self.cursor
+        #print('select xref_id from %s.xref where display_label = %s' %(self.db, external_ref_label)) 
+        n = cursor.execute('select xref_id from %s.xref where display_label = %%s' %(self.db), (external_ref_label))
+        t = cursor.fetchall()
+        # Retrieve gene_id(s) that are associated with the returned xref_id(s)
+        geneIDs = []
+        for row in t:
+	    print 'select gene_id from %s.gene where display_xref_id = %s' %(self.db, row[0])
+            n = cursor.execute('select gene_id from %s.gene where display_xref_id = %s' %(self.db, row[0]))
+            gene_ids = cursor.fetchall()
+            for gid_row in gene_ids:
+                geneIDs.append(gid_row[0])
+        # Create genes based on the retrieved gene_ids
+        genes = []
+        for gid in geneIDs:
+            g = Gene(gid)
+            genes.append(g)
+
+        return genes
+            
+        
     
    
     
@@ -325,22 +357,28 @@ if __name__ == '__main__': # example code
     for index, e in enumerate(exons):
        print '\nexon', index 
        e.getAttributes()
-       
+    '''   
+    print '\ngene_adaptor.fetch_genes_by_externalRef():'
     gene_adaptor = driver.getAdaptor('gene')
+    genes = gene_adaptor.fetch_genes_by_externalRef('IQSEC3')
+    for index, g in enumerate(genes):
+        print '\ngene', index, ':'
+        g.getAttributes()
+        
+    '''
     genes = gene_adaptor.fetch_genes_by_seqregion(1, 4274, 19669, -1, driver)
     for index, g in enumerate(genes):
         print '\ngene', index
         g.getAttributes()
         g.getSequence('gene')
-    '''
+  
     transcript_adaptor = driver.getAdaptor('transcript')
-    '''
     transcripts = transcript_adaptor.fetch_transcripts_by_seqregion(1, 4274, 19669, -1, driver) 
     for index, t in enumerate(transcripts):
         print '\ntranscript', index
         t.getAttributes()
         #t.getSequence('transcript')
-    '''
+  
     print '\ntranscript_adaptor.fetch_transcripts_by_geneID(gene_id):'
     transcripts = transcript_adaptor.fetch_transcripts_by_geneID(34)
     if len(transcripts) == 0:
@@ -351,7 +389,7 @@ if __name__ == '__main__': # example code
             t.getAttributes()
             print 'length: ', len(t.getSequence('transcript'))
     
-    '''
+   
     #s = driver.fetch_sequence_by_region(1, 4274, 19669, 1)
     s = driver.fetch_sequence_by_region(10, 444866, 444957, 1)
     print "\nLength of the sequence: ", len(s)
