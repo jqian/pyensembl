@@ -2,116 +2,18 @@ from ensembl.adaptor import *
 
 
 
-def _getDriver():
-    '''Obtain an ensembl database connection.  
-    Thus, in order to connect to a different database, this is the only place needs to be modified!'
-    '''
-    
-    # Weird...but Python somehow "forgot" the definition and location of getDriver
-    from ensembl.adaptor import getDriver
-    return getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
-
-
-
 class BaseModel(object):
     '''A generic interface to a row object in a table in a core ensembl database
     '''
     
     def __init__(self, tbname, i):
-        
-        driver = _getDriver()
-        self.rowobj = driver.getAdaptor(tbname)[i]
-        self.driver = driver
-        
+        driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
+        self.rowobj = driver.getAdaptor(tbname)[i] 
+
     def getAttributes(self):
         'print out this row record'
 	for k, v in self.rowobj._attrcol.iteritems():
 	    print k, ' = ', self.rowobj.data[v]
-
-
-
-class Xref(BaseModel):
-    '''An interface to a record in the xref table in any ensembl core database'''
-
-    def __init__(self, i):
-        BaseModel.__init__(self, 'xref', i)
-
-    def get_display_label(self):
-        return self.rowobj.display_label
-
-
-
-class Translation(BaseModel):
-    '''An interface to a translation record in the translation table in any ensmbl core database'''
-
-    def __init__(self, i):
-        BaseModel.__init__(self, 'translation', i)
-
-    def getTranscriptID(self):
-       return self.rowobj.transcript_id
-
-    def get_start_exon_id(self):
-        return self.rowobj.start_exon_id
-
-    def get_end_exon_id(self):
-        return self.rowobj.end_exon_id
-
-    def getExons(self):
-        transcript_id = self.rowobj.transcript_id
-        start_exon_id = self.get_start_exon_id()
-        end_exon_id = self.get_end_exon_id()
-        driver = self.driver
-        exon_adaptor = driver.getAdaptor('exon')
-        exons = exon_adaptor.fetch_exons_by_translation(transcript_id, start_exon_id, end_exon_id)
-        return exons
-        
-        
-
-class StableID(BaseModel):
-    '''An interface to a generic stable_id record in a generic stable_id table in any ensembl core database'''
-
-    def __init__(self, tbname, i):
-        BaseModel.__init__(self, tbname, i)
-
-    def getStableID(self):
-        return self.rowobj.stable_id
-
-    def getVersion(self):
-        return self.rowobj.version
-
-    def get_created_date(self):
-        return self.rowobj.created_date
-
-    def get_modified_date(self):
-        return self.rowobj.modified_date
-
-
-class GeneStableID(StableID):
-    '''An interface to a record in the gene_stable_id table in any ensembl core database'''
-
-    def __init__(self, i):
-        StableID.__init__(self, 'gene_stable_id', i)
-
-
-class TranscriptStableID(StableID):
-    '''An interface to a record in the transcript_stable_id table in any ensembl core database'''
-
-    def __init__(self, i):
-        StableID.__init__(self, 'transcript_stable_id', i)
-
-
-class ExonStableID(StableID):
-    '''An interface to a record in the exon_stable_id table in any ensembl core database'''
-
-    def __init__(self, i):
-        StableID.__init__(self, 'exon_stable_id', i)
-
-
-class TranslationStableID(StableID):
-    '''An interface to a record in the translation_stable_id table in any ensembl core database'''
-
-    def __init__(self, i):
-        StableID.__init__(self, 'translation_stable_id', i)
 
 
 
@@ -157,7 +59,8 @@ class Sliceable(BaseModel):
     def _getSeqregionDB(self):      
         'a private helper method to create a seq_region database object'
 
-        seq_regiontb = self.driver.getAdaptor('seq_region').tbobj
+        driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
+        seq_regiontb = driver.getAdaptor('seq_region').tbobj
         import pygr.Data
         hg18 = pygr.Data.Bio.Seq.Genome.HUMAN.hg18() # human genome
         srdb = SeqRegion(seq_regiontb, {17:hg18}, {17:'chr'})
@@ -167,7 +70,8 @@ class Sliceable(BaseModel):
     def _getAnnotationDB(self, unit_tbname):
         'a private helper method to create an annotation db object'
 
-        unit_TB = self.driver.getAdaptor(unit_tbname).tbobj
+        driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
+        unit_TB = driver.getAdaptor(unit_tbname).tbobj
         # obtain a seq_region db object
         srdb = self._getSeqregionDB()
         from pygr.seqdb import AnnotationDB
@@ -205,10 +109,10 @@ class Sliceable(BaseModel):
         unitobj = annoDB[unitID]
         s = unitobj.sequence
         return s
-    '''    
+        
     def getExons(self):
         'Find exons of a gene or a transcript object.'
- 
+        driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
         # obtain a seq_region database object
         srdb =self._getSeqregionDB()
         # obtain an annotation database object
@@ -233,7 +137,7 @@ class Sliceable(BaseModel):
                     e = Exon(annobj.id)
                     exons.append(e)
         return exons
-    '''    
+
     def getAnalysisID(self):
         return self.rowobj.analysis_id
         
@@ -302,18 +206,6 @@ class Transcript(Sliceable):
     def __init__(self, i):
         Sliceable.__init__(self, 'transcript', i)
 
-    def getGeneID(self):
-        return self.rowobj.gene_id
-
-    def getExons(self):
-        'obtain all the exons of this transcript'
-
-        transcript_id = self.rowobj.id
-        driver = self.driver
-        exon_adaptor = driver.getAdaptor('exon')
-        exons = exon_adaptor.fetch_exons_by_transcriptID(transcript_id)
-        return exons
-
     #def getExternalRefs(self):
     #    return getExternalRefs(true);
 
@@ -323,24 +215,17 @@ class Transcript(Sliceable):
 
     #def getModifiedDate(self):
 
-    def getGene(self):
-        'obtain its gene'
+    #def getGene(self):
 
-        gene_id = self.getGeneID()
-        gene = Gene(gene_id)
-        return gene
+    #def getTranslation(self):
 
-    def getTranslations(self):
-        'obtain its translation'
-        
-        translation_adaptor = self.driver.getAdaptor('translation')
-        transcript_id = self.rowobj.transcript_id
-        translations = translation_adaptor.fetch_translations_by_transcriptID(transcript_id)
-        return translations
+    #def getSequence(self):
 
     #def getSupportingFeatures(self):
 
     #def getAnalysis(self):
+
+    #def getGene(self):
 
 
 class Gene(Sliceable):
@@ -348,39 +233,10 @@ class Gene(Sliceable):
 
     def __init__(self, i):
         Sliceable.__init__(self, 'gene', i)
-       
+
     def getTranscripts(self):
         'return transcripts if available, otherwise empty list'
 
-        gene_id = self.rowobj.gene_id
-        transcript_adaptor = self.driver.getAdaptor('transcript')
-        transcripts = transcript_adaptor.fetch_transcripts_by_geneID(gene_id)
-        return transcripts
-    
-    def getExons(self):
-        'Obtain all the exons for each of its transcripts'
-
-        transcript_exon_dict = {}
-        transcripts = self.getTranscripts()
-        if len(transcripts) == 0:
-            return transcript_exon_dict
-        for t in transcripts:
-            exons = t.getExons()
-            transcript_exon_dict[t] = exons
-        return transcript_exon_dict
-
-    def getTranslations(self):
-        'Obtain all the translations for each of its transcripts'
-        
-        transcript_translation_dict = {}
-        transcripts = self.getTranscripts()
-        if len(transcripts) == 0:
-            return transcript_translation_dict
-        for t in transcripts:
-            translations = t.getTranslations()
-            transcript_translation_dict[t] = translations
-        return transcript_translation_dict
-        
     def getExternalRefs(self):
         '''References to external databases.  They are a collection of all the 
         transcript.externalRefs.
@@ -409,31 +265,9 @@ def _sliceable_tester(classobj):
     print '\nis_current():', classobj.is_current()
     print '\nisknown():', classobj.isKnown()  
     
-def _stableID_tester(classobj):
-    '''A private helper method to test all the functions defined in the StableID class when invoked by a specialized StableID object.'''
-
-    print '\ngetAttributes():'
-    classobj.getAttributes()
-    print '\ngetStableID():', classobj.getStableID()
-    print '\ngetVersion():', classobj.getVersion()
-    print '\nget_created_date():', classobj.get_created_date()
-    print '\nget_modified_date():', classobj.get_modified_date()
-
-def _getExons_tester(exons):
-    'retrieve and print out all the exons returned by the *.getExons()'  
-  
-    if len(exons) == 0:
-        print '\nno exon returned'
-    else:
-        for index, e in enumerate(exons):
-            print '\nexon ', index, ':'
-            e.getAttributes()
-            #print 'Sequence:', str(e.getSequence())
-            print 'Length of the sequence:', len(e.getSequence('exon'))
-
-
+    
 if __name__ == '__main__': # example code
-
+    
     print '\ntest results for the Seqregion class:'
     seq_region = Seqregion(143909)
     print '\nseq_region.getAttributes():'
@@ -455,11 +289,9 @@ if __name__ == '__main__': # example code
     print str(exon_sequence)
     print '\nthe length of this exon sequence:', len(exon_sequence)
     print '\nexon.getExons():', exon.getExons()
-  
+
     print '\n\ntest results for the Gene class:'
-    #gene = Gene(121)
-    gene = Gene(8946)
-   
+    gene = Gene(34)
     _sliceable_tester(gene)
     print '\nmethods unique to the Gene class:'
     print '\ngene.getSequence(\'gene\')'   
@@ -467,101 +299,32 @@ if __name__ == '__main__': # example code
     print str(gene_sequence)
     print '\nthe length of this gene sequence:', len(gene_sequence)
     print '\ngene.getExons():' 
-    transcript_exon_dict = gene.getExons()
+    exons = gene.getExons()
     # retrieve and print out all the exons returned by the gene.getExons()    
-    if len(transcript_exon_dict) == 0:
-        print 'No transcript and therefore no exon identified for this gene.'
-    for k, v in transcript_exon_dict.iteritems():
-            print '\nall the exons in transcript', k.rowobj.id, ':'
-            _getExons_tester(v)        
-    print '\ngene.getTranscripts():'
-    transcripts = gene.getTranscripts()
-    if len(transcripts) == 0:
-        print '\nNo transcript identified for this gene.'
-    else:
-        for index, t in enumerate(transcripts):
-            print '\ntranscript ', index, ':'
-            t.getAttributes()
-            print 'length: ', len(t.getSequence('transcript'))   
+    for index, e in enumerate(exons):
+            print '\nexon ', index, ':'
+            e.getAttributes()
+            print 'Phase:', e.getPhase()
+            print 'EndPhase:', e.getEndPhase()
+            #print 'Sequence:', str(e.getSequence())
+            print 'Length of the sequence:', len(e.getSequence('exon'))
     
-    # retrieve and print out all the translations returned by the gene.getTranslations()    
-    transcript_translation_dict = gene.getTranslations()
-    if len(transcript_translation_dict) == 0:
-        print 'No transcript and therefore no translation identified for this gene.'
-    for k, v in transcript_translation_dict.iteritems():
-            print '\nall the translations in transcript', k.rowobj.id, ':'
-            for index, tln in enumerate(v):
-                print '\ntranslation', index, ':'
-                tln.getAttributes()
-    
-    print '\ngene.getTranscripts():'
-    transcripts = gene.getTranscripts()
-    if len(transcripts) == 0:
-        print '\nNo transcript identified for this gene.'
-    else:
-        for index, t in enumerate(transcripts):
-            print '\ntranscript ', index, ':'
-            t.getAttributes()
-            print 'length: ', len(t.getSequence('transcript'))       
-        
     print '\n\ntest results for the Transcript class:'
-    #transcript = Transcript(76)
-    transcript = Transcript(15960)
+    transcript = Transcript(76)
     _sliceable_tester(transcript)
     print '\nmethods unique to the Transcript class:'
     print '\ntranscript.getSequence(\'transcript\')'   
     transcript_sequence = transcript.getSequence('transcript')
     print str(transcript_sequence)
     print '\nthe length of this transcript sequence:', len(transcript_sequence)
-   
     print '\ntranscript.getExons():' 
     exons = transcript.getExons()
     # retrieve and print out all the exons returned by the transcript.getExons()    
-    _getExons_tester(exons)
-   
-    print '\ntranscript.getTranslations():'
-    translations = transcript.getTranslations()
-    for index, t in enumerate(translations):
-        print '\ntranslation', index, ':'
-        t.getAttributes()
-
-    # get the gene corresponding to this transcript
-    print '\ntranscript.getGene():'
-    gene = transcript.getGene()
-    print 'The id of its gene:', gene.rowobj.gene_id
-    s = gene.getSequence('gene')
-    print '\nThe sequence of its gene:', str(s)
-    print '\nThe length of its gene:', len(s)
-
-    print '\ntest results for the Translation class:'
-    translation = Translation(15121)
-    print '\ntranslation.getAttributes():'
-    translation.getAttributes()
-    print '\ntranslation.getTranscriptID:', translation.getTranscriptID()
-    print '\ntranslation.get_start_exon_id:', translation.get_start_exon_id()
-    print '\ntranslation.get_end_exon_id:', translation.get_end_exon_id()
-    print '\ntranslation.getExons():'
-    exons = translation.getExons()
-    _getExons_tester(exons)
- 
-    print '\ntest results for the GeneStableID class:'
-    gene_stable_id = GeneStableID(8946)
-    _stableID_tester(gene_stable_id)
-
-    print '\ntest results for the TranscriptStableID class:'
-    transcript_stable_id = TranscriptStableID(15960)
-    _stableID_tester(transcript_stable_id)
+    for index, e in enumerate(exons):
+            print '\nexon ', index, ':'
+            e.getAttributes()
+            print 'Phase:', e.getPhase()
+            print 'EndPhase:', e.getEndPhase()
+            #print 'Sequence:', str(e.getSequence())
+            print 'Length of the sequence:', len(e.getSequence('exon'))
     
-    print '\ntest results for the ExonStableID class:'
-    exon_stable_id = ExonStableID(1)
-    _stableID_tester(exon_stable_id)
-
-    print '\ntest results for the TranslationStableID class:'
-    translation_stable_id = TranslationStableID(1)
-    _stableID_tester(translation_stable_id)
-
-    print '\ntest results for the Xref class:'
-    aXref = Xref(1805202)
-    print '\nXref.getAttributes:'
-    aXref.getAttributes()
-    print '\nXref.get_display_label():', aXref.get_display_label()
