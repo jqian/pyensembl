@@ -288,9 +288,6 @@ class Exon(Sliceable):
     def isKnown(self):
         return 'Undefined'
 
-    def getExons(self):
-        return 'Undefined'
-
     #def getGene(self):
 
     #def getTranscripts(self):
@@ -454,7 +451,6 @@ if __name__ == '__main__': # example code
     exon_sequence = exon.getSequence('exon')
     print str(exon_sequence)
     print '\nthe length of this exon sequence:', len(exon_sequence)
-    print '\nexon.getExons():', exon.getExons()
   
     print '\n\ntest results for the Gene class:'
     #gene = Gene(121)
@@ -485,6 +481,7 @@ if __name__ == '__main__': # example code
             print 'length: ', len(t.getSequence('transcript'))   
     
     # retrieve and print out all the translations returned by the gene.getTranslations()    
+    print '\ngene.getTranslations():'
     transcript_translation_dict = gene.getTranslations()
     if len(transcript_translation_dict) == 0:
         print 'No transcript and therefore no translation identified for this gene.'
@@ -493,17 +490,7 @@ if __name__ == '__main__': # example code
             for index, tln in enumerate(v):
                 print '\ntranslation', index, ':'
                 tln.getAttributes()
-    
-    print '\ngene.getTranscripts():'
-    transcripts = gene.getTranscripts()
-    if len(transcripts) == 0:
-        print '\nNo transcript identified for this gene.'
-    else:
-        for index, t in enumerate(transcripts):
-            print '\ntranscript ', index, ':'
-            t.getAttributes()
-            print 'length: ', len(t.getSequence('transcript'))       
-        
+
     print '\n\ntest results for the Transcript class:'
     #transcript = Transcript(76)
     transcript = Transcript(15960)
