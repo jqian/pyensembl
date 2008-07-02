@@ -18,7 +18,7 @@ class Driver (object):
     def __init__(self, host, user, dbname):
         self.conn = MySQLdb.connect(host, user)
         self.db = dbname
-        self.tb_adaptor = {'exon': ExonAdaptor, 'gene': GeneAdaptor, 'transcript': TranscriptAdaptor, 'seq_region': SeqregionAdaptor}
+        self.tb_adaptor = {'exon': ExonAdaptor, 'gene': GeneAdaptor, 'transcript': TranscriptAdaptor, 'seq_region': SeqregionAdaptor, 'translation': TranslationAdaptor, 'gene_stable_id': GeneStableIdAdaptor, 'transcript_stable_id': TranscriptStableIdAdaptor, 'translation_stable_id': TranslationStableIdAdaptor, 'exon_stable_id': ExonStableIdAdaptor, 'xref': XrefAdaptor}
 
     def getAdaptor(self, tbname):    
         adaptor_name = self.tb_adaptor[tbname]
@@ -106,7 +106,6 @@ chromosome, start, end, strand).
         
         return unit_list
 
-    
 
 class Adaptor(object):
     '''A base class that provides access to a generic table in a core ensembl   
@@ -122,6 +121,72 @@ class Adaptor(object):
 
     def __getitem__(self, i):
         return self.tbobj[i]
+
+
+'''
+class ExonTranscriptAdaptor(Adaptor):
+    'Provides access to the exon_transcript table in an ensembl core database'
+
+    def __init__(self, dbname, cursor):
+        Adaptor.__init__(self, dbname, 'exon_transcript', sqlgraph.TupleO, cursor)
+'''
+
+
+class XrefAdaptor(Adaptor):
+    '''Provides access to the xref table in an ensembl core database'''
+
+    def __init__(self, dbname, cursor):
+        Adaptor.__init__(self, dbname, 'xref', sqlgraph.TupleO, cursor)
+
+
+
+class TranslationAdaptor(Adaptor):
+    '''Provides access to the translation table in an ensembl core database'''
+
+    def __init__(self, dbname, cursor):
+        Adaptor.__init__(self, dbname, 'translation', sqlgraph.TupleO, cursor)
+
+    def fetch_translations_by_transcriptID(self, transcript_id):
+        cursor = self.cursor
+        n = cursor.execute('select translation_id from %s.translation where transcript_id = %s' %(self.db, transcript_id))
+        t = cursor.fetchall()
+        translations = []
+        for row in t:
+            translation = Translation(row[0])
+            translations.append(translation)
+        return translations
+
+
+
+class GeneStableIdAdaptor(Adaptor):
+    '''Provides access to the gene_stable_id table in an ensembl core database'''
+
+    def __init__(self, dbname, cursor):
+        Adaptor.__init__(self, dbname, 'gene_stable_id', sqlgraph.TupleO, cursor)
+
+
+class TranscriptStableIdAdaptor(Adaptor):
+    '''Provides access to the transcript_stable_id table in an ensembl core database'''
+
+    def __init__(self, dbname, cursor):
+        Adaptor.__init__(self, dbname, 'transcript_stable_id', sqlgraph.TupleO, cursor)
+
+
+
+class TranslationStableIdAdaptor(Adaptor):
+    '''Provides access to the translation_stable_id table in an ensembl core database'''
+
+    def __init__(self, dbname, cursor):
+        Adaptor.__init__(self, dbname, 'translation_stable_id', sqlgraph.TupleO, cursor)
+
+
+
+class ExonStableIdAdaptor(Adaptor):
+    '''Provides access to the exon_stable_id table in an ensembl core database'''
+
+    def __init__(self, dbname, cursor):
+        Adaptor.__init__(self, dbname, 'exon_stable_id', sqlgraph.TupleO, cursor)
+
 
 
 class SeqregionAdaptor(Adaptor):
@@ -153,7 +218,41 @@ class ExonAdaptor(Adaptor):
             print 'no exons found on this strand(', strand, ')'
         return exons
 
-    #def fetch_exon_by_something(self, something):
+    def fetch_exons_by_transcriptID(self, transcript_id):
+	cursor = self.cursor
+        n = cursor.execute('select exon_id from %s.exon_transcript where transcript_id = %s' %(self.db, transcript_id))
+        t = cursor.fetchall()
+        exons = []
+        if n == 0:
+            return exons
+        for row in t:
+            e = Exon(row[0])
+            exons.append(e)
+        return exons
+
+    def fetch_exons_by_translation(self, transcript_id, start_exon_id, end_exon_id):
+        
+        cursor = self.cursor
+        n = cursor.execute('select rank from %s.exon_transcript where transcript_id = %%s and exon_id = %%s' %(self.db), (transcript_id, start_exon_id))
+        t = cursor.fetchall()
+        if n != 1:
+            raise KeyError('Warning: duplicated!')
+        start_rank = t[0][0]
+        n = cursor.execute('select rank from %s.exon_transcript where transcript_id = %%s and exon_id = %%s' %(self.db), (transcript_id, end_exon_id))
+        t = cursor.fetchall()
+        if n != 1:
+            raise KeyError('Warning: duplicated!')
+        end_rank = t[0][0]
+        
+        n = cursor.execute('select exon_id from %s.exon_transcript where transcript_id = %%s and rank >= %%s and rank <= %%s' %(self.db), (transcript_id, start_rank, end_rank))
+        t = cursor.fetchall()
+        exons = []
+        if n == 0:
+            return exons
+        for row in t:
+            e = Exon(row[0])
+            exons.append(e)
+        return exons
 
 
 class TranscriptAdaptor(Adaptor):
@@ -177,7 +276,24 @@ class TranscriptAdaptor(Adaptor):
             print 'no transcript found on this strand(', strand, ')'
         return transcripts
     
-    #def fetch_transcript_by_something(self, something):
+    def fetch_transcripts_by_geneID(self, gene_id):
+        'obtain all the transcripts that share the given gene_id'
+
+        cursor = self.cursor
+        #print 'select transcript_id from %s.transcript where gene_id = %s' %(self.db, gene_id)
+        n = cursor.execute('select transcript_id from %s.transcript where gene_id = %%s' %(self.db), (gene_id))
+        #n = cursor.execute('select transcript_id from %s.transcript where gene_id = %s' %(self.db, gene_id))
+
+        t = cursor.fetchall()
+        #print t
+        transcripts = []
+        if n == 0:
+            return transcripts
+        else:
+            for row in t:
+                t = Transcript(row[0])
+                transcripts.append(t)
+            return transcripts
 
 
 
@@ -202,14 +318,36 @@ class GeneAdaptor(Adaptor):
             print 'no gene found on this strand(', strand, ')'
         return genes
     
-    #def fetch_genes_by_something(self, something):
+    def fetch_genes_by_externalRef(self, external_ref_label):
+        '''Retrieve all the genes that are associated with a particular external reference'''
+
+        # Retrieve xref_id(s) that are associated with this external reference
+        cursor = self.cursor
+        #print('select xref_id from %s.xref where display_label = %s' %(self.db, external_ref_label)) 
+        n = cursor.execute('select xref_id from %s.xref where display_label = %%s' %(self.db), (external_ref_label))
+        t = cursor.fetchall()
+        # Retrieve gene_id(s) that are associated with the returned xref_id(s)
+        geneIDs = []
+        for row in t:
+            n = cursor.execute('select gene_id from %s.gene where display_xref_id = %s' %(self.db, row[0]))
+            gene_ids = cursor.fetchall()
+            for gid_row in gene_ids:
+                geneIDs.append(gid_row[0])
+        # Create genes based on the retrieved gene_ids
+        genes = []
+        for gid in geneIDs:
+            g = Gene(gid)
+            genes.append(g)
+
+        return genes
+            
+        
     
    
     
 if __name__ == '__main__': # example code
     
     driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
-    
     exon_adaptor = driver.getAdaptor('exon')
     #exons = exon_adaptor.fetch_exons_by_seqregion(1, 6023217, 6023986, 1, driver)
     #exons = exon_adaptor.fetch_exons_by_seqregion(10, 444866, 444957, -1, driver)
@@ -217,21 +355,38 @@ if __name__ == '__main__': # example code
     for index, e in enumerate(exons):
        print '\nexon', index 
        e.getAttributes()
-       
+    
+    print '\ngene_adaptor.fetch_genes_by_externalRef():'
     gene_adaptor = driver.getAdaptor('gene')
+    genes = gene_adaptor.fetch_genes_by_externalRef('IQSEC3')
+    for index, g in enumerate(genes):
+        print '\ngene', index, ':'
+        g.getAttributes()
+        
     genes = gene_adaptor.fetch_genes_by_seqregion(1, 4274, 19669, -1, driver)
     for index, g in enumerate(genes):
         print '\ngene', index
         g.getAttributes()
         g.getSequence('gene')
-
+  
     transcript_adaptor = driver.getAdaptor('transcript')
     transcripts = transcript_adaptor.fetch_transcripts_by_seqregion(1, 4274, 19669, -1, driver) 
     for index, t in enumerate(transcripts):
         print '\ntranscript', index
         t.getAttributes()
         #t.getSequence('transcript')
+  
+    print '\ntranscript_adaptor.fetch_transcripts_by_geneID(gene_id):'
+    transcripts = transcript_adaptor.fetch_transcripts_by_geneID(34)
+    if len(transcripts) == 0:
+        print '\nNo transcript identified for this gene.'
+    else:
+        for index, t in enumerate(transcripts):
+            print '\ntranscript ', index, ':'
+            t.getAttributes()
+            print 'length: ', len(t.getSequence('transcript'))
     
+   
     #s = driver.fetch_sequence_by_region(1, 4274, 19669, 1)
     s = driver.fetch_sequence_by_region(10, 444866, 444957, 1)
     print "\nLength of the sequence: ", len(s)
