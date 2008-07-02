@@ -329,7 +329,6 @@ class GeneAdaptor(Adaptor):
         # Retrieve gene_id(s) that are associated with the returned xref_id(s)
         geneIDs = []
         for row in t:
-	    print 'select gene_id from %s.gene where display_xref_id = %s' %(self.db, row[0])
             n = cursor.execute('select gene_id from %s.gene where display_xref_id = %s' %(self.db, row[0]))
             gene_ids = cursor.fetchall()
             for gid_row in gene_ids:
@@ -349,7 +348,6 @@ class GeneAdaptor(Adaptor):
 if __name__ == '__main__': # example code
     
     driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
-    '''
     exon_adaptor = driver.getAdaptor('exon')
     #exons = exon_adaptor.fetch_exons_by_seqregion(1, 6023217, 6023986, 1, driver)
     #exons = exon_adaptor.fetch_exons_by_seqregion(10, 444866, 444957, -1, driver)
@@ -357,7 +355,7 @@ if __name__ == '__main__': # example code
     for index, e in enumerate(exons):
        print '\nexon', index 
        e.getAttributes()
-    '''   
+    
     print '\ngene_adaptor.fetch_genes_by_externalRef():'
     gene_adaptor = driver.getAdaptor('gene')
     genes = gene_adaptor.fetch_genes_by_externalRef('IQSEC3')
@@ -365,7 +363,6 @@ if __name__ == '__main__': # example code
         print '\ngene', index, ':'
         g.getAttributes()
         
-    '''
     genes = gene_adaptor.fetch_genes_by_seqregion(1, 4274, 19669, -1, driver)
     for index, g in enumerate(genes):
         print '\ngene', index
@@ -394,6 +391,6 @@ if __name__ == '__main__': # example code
     s = driver.fetch_sequence_by_region(10, 444866, 444957, 1)
     print "\nLength of the sequence: ", len(s)
     print "The sequence: ", str(s)
-    '''
+    
 
 

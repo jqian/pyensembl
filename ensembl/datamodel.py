@@ -30,6 +30,17 @@ class BaseModel(object):
 
 
 
+class Xref(BaseModel):
+    '''An interface to a record in the xref table in any ensembl core database'''
+
+    def __init__(self, i):
+        BaseModel.__init__(self, 'xref', i)
+
+    def get_display_label(self):
+        return self.rowobj.display_label
+
+
+
 class Translation(BaseModel):
     '''An interface to a translation record in the translation table in any ensmbl core database'''
 
@@ -422,7 +433,7 @@ def _getExons_tester(exons):
 
 
 if __name__ == '__main__': # example code
-    '''
+
     print '\ntest results for the Seqregion class:'
     seq_region = Seqregion(143909)
     print '\nseq_region.getAttributes():'
@@ -444,11 +455,11 @@ if __name__ == '__main__': # example code
     print str(exon_sequence)
     print '\nthe length of this exon sequence:', len(exon_sequence)
     print '\nexon.getExons():', exon.getExons()
-    '''
+  
     print '\n\ntest results for the Gene class:'
     #gene = Gene(121)
     gene = Gene(8946)
-    '''
+   
     _sliceable_tester(gene)
     print '\nmethods unique to the Gene class:'
     print '\ngene.getSequence(\'gene\')'   
@@ -472,8 +483,8 @@ if __name__ == '__main__': # example code
             print '\ntranscript ', index, ':'
             t.getAttributes()
             print 'length: ', len(t.getSequence('transcript'))   
-    '''
-# retrieve and print out all the translations returned by the gene.getTranslations()    
+    
+    # retrieve and print out all the translations returned by the gene.getTranslations()    
     transcript_translation_dict = gene.getTranslations()
     if len(transcript_translation_dict) == 0:
         print 'No transcript and therefore no translation identified for this gene.'
@@ -482,7 +493,7 @@ if __name__ == '__main__': # example code
             for index, tln in enumerate(v):
                 print '\ntranslation', index, ':'
                 tln.getAttributes()
-    '''
+    
     print '\ngene.getTranscripts():'
     transcripts = gene.getTranscripts()
     if len(transcripts) == 0:
@@ -548,4 +559,9 @@ if __name__ == '__main__': # example code
     print '\ntest results for the TranslationStableID class:'
     translation_stable_id = TranslationStableID(1)
     _stableID_tester(translation_stable_id)
-    '''
+
+    print '\ntest results for the Xref class:'
+    aXref = Xref(1805202)
+    print '\nXref.getAttributes:'
+    aXref.getAttributes()
+    print '\nXref.get_display_label():', aXref.get_display_label()
