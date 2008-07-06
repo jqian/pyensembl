@@ -485,7 +485,7 @@ if __name__ == '__main__': # example code
     print '\nseq_region.getCoordinateSystem():', seq_region.getCoordinateSystem() # 4
     print '\nseq_region.getName():', seq_region.getName() # AADC01095577.1.1.41877
     print '\nseq_region.getLength():', seq_region.getLength() # 41877
-    
+    '''
     print '\n\ntest results for the Exon class:'
     #exon = Exon(73777)
     
@@ -493,7 +493,8 @@ if __name__ == '__main__': # example code
     exon = Exon(95160)
     #print exon.rowobj.seq_region_id # 226034
     #print exon.rowobj.start # 444865
-    
+    _sliceable_stableID_tester(exon, 'exon_stable_id')
+    '''
     _sliceable_tester(exon)
     print '\nmethods unique to the Exon class:'
     print '\nexon.getPhase():', exon.getPhase()
@@ -507,6 +508,7 @@ if __name__ == '__main__': # example code
     print '\n\ntest results for the Gene class:'
     #gene = Gene(121)
     gene = Gene(8946)
+    _sliceable_stableID_tester(gene, 'gene_stable_id')
     '''
     _sliceable_tester(gene)
     print '\nmethods unique to the Gene class:'
@@ -546,13 +548,13 @@ if __name__ == '__main__': # example code
     print "\ngene.get_created_date('gene_stable_id'):"
     created_date = gene.get_created_date('gene_stable_id')
     print 'created date: ', created_date
-    ''' 
-    _sliceable_stableID_tester(gene, 'gene_stable_id')
+    
     '''
     print '\n\ntest results for the Transcript class:'
     #transcript = Transcript(76)
     transcript = Transcript(15960)
-    
+    _sliceable_stableID_tester(transcript, 'transcript_stable_id')
+    '''
     _sliceable_tester(transcript)
     print '\nmethods unique to the Transcript class:'
     print '\ntranscript.getSequence(\'transcript\')'   
@@ -578,7 +580,7 @@ if __name__ == '__main__': # example code
     s = gene.getSequence('gene')
     print '\nThe sequence of its gene:', str(s)
     print '\nThe length of its gene:', len(s)
-   
+    
     print '\ntest results for the Translation class:'
     translation = Translation(15121)
     print '\ntranslation.getAttributes():'
