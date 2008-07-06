@@ -195,12 +195,32 @@ class TranscriptStableIdAdaptor(Adaptor):
     def __init__(self, dbname, cursor):
         Adaptor.__init__(self, dbname, 'transcript_stable_id', sqlgraph.TupleO, cursor)
 
+    def fetch_by_stable_id(self, stable_id):
+        t = self.tbobj.select('where stable_id = %s', (stable_id), None, 't1.transcript_id')
+        transcripts = []
+        for row in t:
+            transcript_id = row.transcript_id
+            transcript = Transcript(transcript_id)
+            transcripts.append(transcript)
+        return transcripts
+
+
 
 class TranslationStableIdAdaptor(Adaptor):
     '''Provides access to the translation_stable_id table in an ensembl core database'''
 
     def __init__(self, dbname, cursor):
         Adaptor.__init__(self, dbname, 'translation_stable_id', sqlgraph.TupleO, cursor)
+    
+    def fetch_by_stable_id(self, stable_id):
+        t = self.tbobj.select('where stable_id = %s', (stable_id), None, 't1.translation_id')
+        translations = []
+        for row in t:
+            translation_id = row.translation_id
+            translation = Translation(translation_id)
+            translations.append(translation)
+        return translations
+
 
 
 
@@ -209,6 +229,15 @@ class ExonStableIdAdaptor(Adaptor):
 
     def __init__(self, dbname, cursor):
         Adaptor.__init__(self, dbname, 'exon_stable_id', sqlgraph.TupleO, cursor)
+
+    def fetch_by_stable_id(self, stable_id):
+        t = self.tbobj.select('where stable_id = %s', (stable_id), None, 't1.exon_id')
+        exons = []
+        for row in t:
+            exon_id = row.exon_id
+            exon = Exon(exon_id)
+            exons.append(exon)
+        return exons
 
 
 
@@ -372,13 +401,19 @@ def _retrieve_units_tester(units, unit_name):
         s = u.getSequence(unit_name)
         print '\nLength:', len(s)
         print '\nSequence:', str(s)
+
+def _fetch_by_stableID_tester(myAdaptor, stable_id):
+    units = myAdaptor.fetch_by_stable_id(stable_id)
+    for index, u in enumerate(units):
+        print index, ':'
+        u.getAttributes()
     
    
     
 if __name__ == '__main__': # example code
     
     driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
-    
+    '''
     exon_adaptor = driver.getAdaptor('exon')
     #exons = exon_adaptor.fetch_exons_by_seqregion(1, 6023217, 6023986, 1, driver)
     #exons = exon_adaptor.fetch_exons_by_seqregion(10, 444866, 444957, -1, driver)
@@ -386,7 +421,7 @@ if __name__ == '__main__': # example code
     for index, e in enumerate(exons):
        print '\nexon', index 
        e.getAttributes()
-    '''
+    
     print '\ngene_adaptor.fetch_genes_by_externalRef():'
     gene_adaptor = driver.getAdaptor('gene')
     genes = gene_adaptor.fetch_genes_by_externalRef('IQSEC3')
@@ -422,7 +457,7 @@ if __name__ == '__main__': # example code
             t.getAttributes()
             print 'length: ', len(t.getSequence('transcript'))
     
-    '''
+    
     #s = driver.fetch_sequence_by_region(1, 4274, 19669, 1)
     s = driver.fetch_sequence_by_region(10, 444866, 444957, 1)
     print "\nLength of the sequence: ", len(s)
@@ -431,8 +466,20 @@ if __name__ == '__main__': # example code
     '''
     gene_stableID_adaptor = driver.getAdaptor('gene_stable_id')
     print "\ntest gene_stableID_adaptor.fetch_by_stable_id('ENSG00000215911')"
-    genes = gene_stableID_adaptor.fetch_by_stable_id('ENSG00000215911')
-    _retrieve_units_tester(genes, 'gene')
-    '''
+    #genes = gene_stableID_adaptor.fetch_by_stable_id('ENSG00000215911')
+    #_retrieve_units_tester(genes, 'gene')
+    _fetch_by_stableID_tester(gene_stableID_adaptor, 'ENSG00000215911')
+
+    transcript_stableID_adaptor = driver.getAdaptor('transcript_stable_id')
+    print "\ntest transcript_stableID_adaptor.fetch_by_stable_id('ENST00000382841')"
+    _fetch_by_stableID_tester(transcript_stableID_adaptor, 'ENST00000382841')
+
+    translation_stableID_adaptor = driver.getAdaptor('translation_stable_id')
+    print "\ntest translation_stableID_adaptor.fetch_by_stable_id('ENSP00000317958')"
+    _fetch_by_stableID_tester(translation_stableID_adaptor, 'ENSP00000317958')
+
+    exon_stableID_adaptor = driver.getAdaptor('exon_stable_id')
+    print "\ntest exon_stableID_adaptor.fetch_by_stable_id('ENSE00001493538')"
+    _fetch_by_stableID_tester(exon_stableID_adaptor, 'ENSE00001493538')
 
 
