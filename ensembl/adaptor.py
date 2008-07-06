@@ -39,15 +39,26 @@ chromosome, start, end, strand).
         hg18 = pygr.Data.Bio.Seq.Genome.HUMAN.hg18() # human genome
         # create a SeqRegion object
         srdb = SeqRegion(seq_regiontb, {17:hg18}, {17:'chr'})
-        
+        #print srdb
         # retrieve the required seq_region_id from the seq_region table by chromosome name
+        '''
         cursor = seq_region.cursor
         #n = srdb.seqRegionDB.cursor.execute('select seq_region_id from seq_region where name = %s' %(chr))
+        
         n = cursor.execute('select seq_region_id from %s.seq_region where name = %s' %(seq_region.db, chromosome))
         #print "Number of rows selected: ", n
         t = cursor.fetchall()[0]
         seq_region_ID = t[0]
+        '''
+        t = seq_regiontb.select('where name = %s', (chromosome), None, 't1.seq_region_id')
+        # t = seq_regiontb.select('where name = %s', (chromosome))
+        #seq_region_ID = t.next().seq_region_id
+        row = t.next()
+        seq_region_ID = row.seq_region_id
+        #print srdb
+        
         #print "Selected seq_region: ", seq_region_ID
+        #print seq_regiontb[seq_region_ID].coord_system_id
         chr_seq = srdb[seq_region_ID]
         #print len(chr_seq)
         # convert an ensembl start coordinate to a Python zero-off coordinate
@@ -83,10 +94,15 @@ chromosome, start, end, strand).
 
         mapper = EnsemblMapper(annoDB, srdb) # find units for any sequence slice
         # retrieve the required seq_region_id from the seq_region table by chromosome name
+        '''
         cursor = seq_region.cursor
         n = cursor.execute('select seq_region_id from %s.seq_region where name = %s' %(seq_region.db, chromosome))
         t = cursor.fetchall()[0]
         seq_region_ID = t[0]
+        '''
+        t = seq_regiontb.select('where name = %s', (chromosome), None, 't1.seq_region_id')
+        row = t.next()
+        seq_region_ID = row.seq_region_id
         # obtain the chromosome sequence object based on the seq_region_ID
         chr_seq = srdb[seq_region_ID]
         # convert an ensembl start 1-offset coordinate to a Python zero-offset coordinate
@@ -139,7 +155,6 @@ class XrefAdaptor(Adaptor):
         Adaptor.__init__(self, dbname, 'xref', sqlgraph.TupleO, cursor)
 
 
-
 class TranslationAdaptor(Adaptor):
     '''Provides access to the translation table in an ensembl core database'''
 
@@ -147,12 +162,12 @@ class TranslationAdaptor(Adaptor):
         Adaptor.__init__(self, dbname, 'translation', sqlgraph.TupleO, cursor)
 
     def fetch_translations_by_transcriptID(self, transcript_id):
-        cursor = self.cursor
-        n = cursor.execute('select translation_id from %s.translation where transcript_id = %s' %(self.db, transcript_id))
-        t = cursor.fetchall()
+        
+        # retrieve row objects from the translation table, which statisfy the SQL select where clause
+        t = self.tbobj.select('where transcript_id = %s', (transcript_id), None, 't1.translation_id') 
         translations = []
         for row in t:
-            translation = Translation(row[0])
+            translation = Translation(row.translation_id)
             translations.append(translation)
         return translations
 
@@ -164,13 +179,21 @@ class GeneStableIdAdaptor(Adaptor):
     def __init__(self, dbname, cursor):
         Adaptor.__init__(self, dbname, 'gene_stable_id', sqlgraph.TupleO, cursor)
 
+    def fetch_by_stable_id(self, stable_id):
+        t = self.tbobj.select('where stable_id = %s', (stable_id), None, 't1.gene_id')
+        genes = []
+        for row in t:
+            gene_id = row.gene_id
+            gene = Gene(gene_id)
+            genes.append(gene)
+        return genes
+
 
 class TranscriptStableIdAdaptor(Adaptor):
     '''Provides access to the transcript_stable_id table in an ensembl core database'''
 
     def __init__(self, dbname, cursor):
         Adaptor.__init__(self, dbname, 'transcript_stable_id', sqlgraph.TupleO, cursor)
-
 
 
 class TranslationStableIdAdaptor(Adaptor):
@@ -278,22 +301,14 @@ class TranscriptAdaptor(Adaptor):
     
     def fetch_transcripts_by_geneID(self, gene_id):
         'obtain all the transcripts that share the given gene_id'
-
-        cursor = self.cursor
-        #print 'select transcript_id from %s.transcript where gene_id = %s' %(self.db, gene_id)
-        n = cursor.execute('select transcript_id from %s.transcript where gene_id = %%s' %(self.db), (gene_id))
-        #n = cursor.execute('select transcript_id from %s.transcript where gene_id = %s' %(self.db, gene_id))
-
-        t = cursor.fetchall()
-        #print t
+        
+        # Obtain row objects that satisfy the select where clause
+        t = self.tbobj.select('where gene_id = %s', (gene_id), None, 't1.transcript_id')
         transcripts = []
-        if n == 0:
-            return transcripts
-        else:
-            for row in t:
-                t = Transcript(row[0])
-                transcripts.append(t)
-            return transcripts
+        for row in t:
+            t = Transcript(row.transcript_id)
+            transcripts.append(t)
+        return transcripts
 
 
 
@@ -319,20 +334,29 @@ class GeneAdaptor(Adaptor):
         return genes
     
     def fetch_genes_by_externalRef(self, external_ref_label):
-        '''Retrieve all the genes that are associated with a particular external reference'''
-
-        # Retrieve xref_id(s) that are associated with this external reference
+        '''Return all the genes that are associated with the given external reference or an empty set.'''
+        
+        '''
         cursor = self.cursor
         #print('select xref_id from %s.xref where display_label = %s' %(self.db, external_ref_label)) 
+        
         n = cursor.execute('select xref_id from %s.xref where display_label = %%s' %(self.db), (external_ref_label))
         t = cursor.fetchall()
+        '''
+        # Retrieve xref_id(s) that are associated with the given external reference
+        
+        driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
+        xref_adaptor = driver.getAdaptor('xref')
+        t = xref_adaptor.tbobj.select('where display_label = %s', (external_ref_label), None, 't1.xref_id')
+        
         # Retrieve gene_id(s) that are associated with the returned xref_id(s)
         geneIDs = []
         for row in t:
-            n = cursor.execute('select gene_id from %s.gene where display_xref_id = %s' %(self.db, row[0]))
-            gene_ids = cursor.fetchall()
-            for gid_row in gene_ids:
-                geneIDs.append(gid_row[0])
+            xref_id = row.xref_id
+            #print xref_id
+            gene_rows = self.tbobj.select('where display_xref_id = %s', (xref_id), None, 't1.gene_id')
+            for gid_row in gene_rows:
+                geneIDs.append(gid_row.gene_id)
         # Create genes based on the retrieved gene_ids
         genes = []
         for gid in geneIDs:
@@ -341,13 +365,20 @@ class GeneAdaptor(Adaptor):
 
         return genes
             
-        
+def _retrieve_units_tester(units, unit_name):
+    for index, u in enumerate(units):
+        print unit_name, index, ':'
+        u.getAttributes()
+        s = u.getSequence(unit_name)
+        print '\nLength:', len(s)
+        print '\nSequence:', str(s)
     
    
     
 if __name__ == '__main__': # example code
     
     driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
+    
     exon_adaptor = driver.getAdaptor('exon')
     #exons = exon_adaptor.fetch_exons_by_seqregion(1, 6023217, 6023986, 1, driver)
     #exons = exon_adaptor.fetch_exons_by_seqregion(10, 444866, 444957, -1, driver)
@@ -355,29 +386,34 @@ if __name__ == '__main__': # example code
     for index, e in enumerate(exons):
        print '\nexon', index 
        e.getAttributes()
-    
+    '''
     print '\ngene_adaptor.fetch_genes_by_externalRef():'
     gene_adaptor = driver.getAdaptor('gene')
     genes = gene_adaptor.fetch_genes_by_externalRef('IQSEC3')
-    for index, g in enumerate(genes):
-        print '\ngene', index, ':'
-        g.getAttributes()
-        
+    #genes = gene_adaptor.fetch_genes_by_externalRef('GO:0000228')
+    if len(genes) == 0:
+        print '\nNo gene is associated with the given external reference label.'
+    else:
+        for index, g in enumerate(genes):
+            print '\ngene', index, ':'
+            g.getAttributes()
+       
     genes = gene_adaptor.fetch_genes_by_seqregion(1, 4274, 19669, -1, driver)
     for index, g in enumerate(genes):
         print '\ngene', index
         g.getAttributes()
         g.getSequence('gene')
-  
+    
     transcript_adaptor = driver.getAdaptor('transcript')
+    
     transcripts = transcript_adaptor.fetch_transcripts_by_seqregion(1, 4274, 19669, -1, driver) 
     for index, t in enumerate(transcripts):
         print '\ntranscript', index
         t.getAttributes()
         #t.getSequence('transcript')
-  
+    
     print '\ntranscript_adaptor.fetch_transcripts_by_geneID(gene_id):'
-    transcripts = transcript_adaptor.fetch_transcripts_by_geneID(34)
+    transcripts = transcript_adaptor.fetch_transcripts_by_geneID(8946)
     if len(transcripts) == 0:
         print '\nNo transcript identified for this gene.'
     else:
@@ -386,11 +422,17 @@ if __name__ == '__main__': # example code
             t.getAttributes()
             print 'length: ', len(t.getSequence('transcript'))
     
-   
+    '''
     #s = driver.fetch_sequence_by_region(1, 4274, 19669, 1)
     s = driver.fetch_sequence_by_region(10, 444866, 444957, 1)
     print "\nLength of the sequence: ", len(s)
     print "The sequence: ", str(s)
-    
+   
+    '''
+    gene_stableID_adaptor = driver.getAdaptor('gene_stable_id')
+    print "\ntest gene_stableID_adaptor.fetch_by_stable_id('ENSG00000215911')"
+    genes = gene_stableID_adaptor.fetch_by_stable_id('ENSG00000215911')
+    _retrieve_units_tester(genes, 'gene')
+    '''
 
 
