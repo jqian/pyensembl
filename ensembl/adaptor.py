@@ -391,7 +391,6 @@ class GeneAdaptor(Adaptor):
         for gid in geneIDs:
             g = Gene(gid)
             genes.append(g)
-
         return genes
             
 def _retrieve_units_tester(units, unit_name):
