@@ -1,7 +1,7 @@
 from ensembl.seqregion import *
 from ensembl.datamodel import *
 import MySQLdb
-
+#test
 
 def getDriver(host, user, dbname):
     '''Provides a method to instantiate a Driver object'''
