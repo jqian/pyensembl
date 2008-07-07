@@ -212,12 +212,8 @@ class SQLTableBase(dict):
             oclass=self.itemClass
         self._select(whereClause,params,selectCols)
         l=self.cursor.fetchall()
-	if selectCols=='t1.*':
-            for t in l:
-                yield self.cacheItem(t,oclass)
-	else:
-            for t in l:
-                yield self.tupleItem(t,oclass)
+        for t in l:
+            yield self.cacheItem(t,oclass)
     def tupleItem(self,t,oclass):
         'create object to represent this row, using oclass'
         o=oclass(t)

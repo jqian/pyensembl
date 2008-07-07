@@ -64,13 +64,9 @@ class Translation(BaseModel):
         exon_adaptor = driver.getAdaptor('exon')
         exons = exon_adaptor.fetch_exons_by_translation(transcript_id, start_exon_id, end_exon_id)
         return exons
-    '''
-    def getCreatedDate(self):
-        'Get ensembl created date for this translation'
+        
+        
 
-        translation_stableID_adaptor = self.driver.getAdaptor('translation_stable_id')
-        created_date = translation_stableID_adaptor[self.translation_id].rowobj.
-    '''
 class StableID(BaseModel):
     '''An interface to a generic stable_id record in a generic stable_id table in any ensembl core database'''
 
@@ -259,42 +255,6 @@ class Sliceable(BaseModel):
         else:
             return False
 
-    def get_stable_id(self, stableID_tb_name):
-        '''Return the stable_id of this Sliceable, none if it doesn't have one'''
-
-        stableID_adaptor = self.driver.getAdaptor(stableID_tb_name)
-        sliceable_id = self.rowobj.id
-        stableID_record = stableID_adaptor[sliceable_id]
-        stable_id = stableID_record.stable_id
-        return stable_id
-
-    def get_created_date(self, stableID_tb_name):
-        'Obtain the ensembl created date for the Sliceable if it has a stable id'
-        stableID_adaptor = self.driver.getAdaptor(stableID_tb_name)
-        sliceable_id = self.rowobj.id
-        stableID_record = stableID_adaptor[sliceable_id]
-        created_date = stableID_record.created_date
-        return created_date
-    
-    def get_modified_date(self, stableID_tb_name):
-        'Obtain the ensembl modified date for the Sliceable if it has a stable id'
-        stableID_adaptor = self.driver.getAdaptor(stableID_tb_name)
-        sliceable_id = self.rowobj.id
-        stableID_record = stableID_adaptor[sliceable_id]
-        modified_date = stableID_record.modified_date
-        return modified_date
-
-    def getVersion(self, stableID_tb_name):
-        'Obtain the ensembl version for the Sliceable if it has a stable id'
-        
-        stableID_adaptor = self.driver.getAdaptor(stableID_tb_name)
-        sliceable_id = self.rowobj.id
-        stableID_record = stableID_adaptor[sliceable_id]
-        version = stableID_record.version
-        return version
-
-        
-
     
 
 class Exon(Sliceable):
@@ -326,6 +286,9 @@ class Exon(Sliceable):
         return 'None'
 
     def isKnown(self):
+        return 'Undefined'
+
+    def getExons(self):
         return 'Undefined'
 
     #def getGene(self):
@@ -446,13 +409,6 @@ def _sliceable_tester(classobj):
     print '\nis_current():', classobj.is_current()
     print '\nisknown():', classobj.isKnown()  
     
-def _sliceable_stableID_tester(classobj, stableID_tb_name):
-    
-    print '\nget_stable_id(stableID_tb_name):', classobj.get_stable_id(stableID_tb_name)
-    print '\nget_created_date(stableID_tb_name):', classobj.get_created_date(stableID_tb_name)
-    print '\nget_modified_date(stableID_tb_name):', classobj.get_modified_date(stableID_tb_name)
-    print '\ngetVersion(stableID_tb_name):', classobj.getVersion(stableID_tb_name)
-
 def _stableID_tester(classobj):
     '''A private helper method to test all the functions defined in the StableID class when invoked by a specialized StableID object.'''
 
@@ -477,7 +433,7 @@ def _getExons_tester(exons):
 
 
 if __name__ == '__main__': # example code
-    '''
+
     print '\ntest results for the Seqregion class:'
     seq_region = Seqregion(143909)
     print '\nseq_region.getAttributes():'
@@ -485,31 +441,25 @@ if __name__ == '__main__': # example code
     print '\nseq_region.getCoordinateSystem():', seq_region.getCoordinateSystem() # 4
     print '\nseq_region.getName():', seq_region.getName() # AADC01095577.1.1.41877
     print '\nseq_region.getLength():', seq_region.getLength() # 41877
-    '''
-    print '\n\ntest results for the Exon class:'
-    #exon = Exon(73777)
     
-    #exon = Exon(95172)
-    exon = Exon(95160)
+    print '\n\ntest results for the Exon class:'
+    exon = Exon(73777)
     #print exon.rowobj.seq_region_id # 226034
     #print exon.rowobj.start # 444865
-    _sliceable_stableID_tester(exon, 'exon_stable_id')
-    '''
     _sliceable_tester(exon)
     print '\nmethods unique to the Exon class:'
     print '\nexon.getPhase():', exon.getPhase()
     print '\nexon.getEndPhase():', exon.getEndPhase()
-    
     print "\nexon.getSequence('exon')"
     exon_sequence = exon.getSequence('exon')
     print str(exon_sequence)
     print '\nthe length of this exon sequence:', len(exon_sequence)
-    '''
+    print '\nexon.getExons():', exon.getExons()
+  
     print '\n\ntest results for the Gene class:'
     #gene = Gene(121)
     gene = Gene(8946)
-    _sliceable_stableID_tester(gene, 'gene_stable_id')
-    '''
+   
     _sliceable_tester(gene)
     print '\nmethods unique to the Gene class:'
     print '\ngene.getSequence(\'gene\')'   
@@ -535,7 +485,6 @@ if __name__ == '__main__': # example code
             print 'length: ', len(t.getSequence('transcript'))   
     
     # retrieve and print out all the translations returned by the gene.getTranslations()    
-    print '\ngene.getTranslations():'
     transcript_translation_dict = gene.getTranslations()
     if len(transcript_translation_dict) == 0:
         print 'No transcript and therefore no translation identified for this gene.'
@@ -545,16 +494,19 @@ if __name__ == '__main__': # example code
                 print '\ntranslation', index, ':'
                 tln.getAttributes()
     
-    print "\ngene.get_created_date('gene_stable_id'):"
-    created_date = gene.get_created_date('gene_stable_id')
-    print 'created date: ', created_date
-    
-    '''
+    print '\ngene.getTranscripts():'
+    transcripts = gene.getTranscripts()
+    if len(transcripts) == 0:
+        print '\nNo transcript identified for this gene.'
+    else:
+        for index, t in enumerate(transcripts):
+            print '\ntranscript ', index, ':'
+            t.getAttributes()
+            print 'length: ', len(t.getSequence('transcript'))       
+        
     print '\n\ntest results for the Transcript class:'
     #transcript = Transcript(76)
     transcript = Transcript(15960)
-    _sliceable_stableID_tester(transcript, 'transcript_stable_id')
-    '''
     _sliceable_tester(transcript)
     print '\nmethods unique to the Transcript class:'
     print '\ntranscript.getSequence(\'transcript\')'   
@@ -566,13 +518,13 @@ if __name__ == '__main__': # example code
     exons = transcript.getExons()
     # retrieve and print out all the exons returned by the transcript.getExons()    
     _getExons_tester(exons)
-    
+   
     print '\ntranscript.getTranslations():'
     translations = transcript.getTranslations()
     for index, t in enumerate(translations):
         print '\ntranslation', index, ':'
         t.getAttributes()
-        
+
     # get the gene corresponding to this transcript
     print '\ntranscript.getGene():'
     gene = transcript.getGene()
@@ -580,7 +532,7 @@ if __name__ == '__main__': # example code
     s = gene.getSequence('gene')
     print '\nThe sequence of its gene:', str(s)
     print '\nThe length of its gene:', len(s)
-    
+
     print '\ntest results for the Translation class:'
     translation = Translation(15121)
     print '\ntranslation.getAttributes():'
@@ -607,10 +559,9 @@ if __name__ == '__main__': # example code
     print '\ntest results for the TranslationStableID class:'
     translation_stable_id = TranslationStableID(1)
     _stableID_tester(translation_stable_id)
-    
+
     print '\ntest results for the Xref class:'
     aXref = Xref(1805202)
     print '\nXref.getAttributes:'
     aXref.getAttributes()
     print '\nXref.get_display_label():', aXref.get_display_label()
-    '''
