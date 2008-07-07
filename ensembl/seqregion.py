@@ -53,7 +53,6 @@ class SeqRegion(dict):
             pass
         sr = self.seqRegionDB[k] # get seq_region info
         try: # get the right sequence database
-	    print sr.coord_system_id
             genome = self.coordSystems[sr.coord_system_id]
         except KeyError:
             raise KeyError('unknown coordinate system %d' % sr.coord_system_id)
