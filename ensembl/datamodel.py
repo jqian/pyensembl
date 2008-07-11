@@ -119,6 +119,32 @@ class TranslationStableID(StableID):
 
 
 
+class PredictionTranscript(BaseModel):
+    '''An interface to a prediction_transcript record in any ensembl core database'''
+
+    def __init__(self, i):
+        BaseModel.__init__(self, 'prediction_transcript', i)
+
+    def getSeqregionID(self):
+        return self.rowobj.seq_region_id
+
+    def getSeqregionStart(self):
+        return self.rowobj.seq_region_start
+
+    def getSeqregionEnd(self):
+        return self.rowobj.seq_region_end
+
+    def getOrientation(self):
+        return self.rowobj.seq_region_strand
+
+    def getAnalysisID(self):
+        return self.rowobj.analysis_id
+
+    def getDisplayLabel(self):
+        return self.rowobj.display_label
+
+
+
 class Seqregion(BaseModel):
     '''An interface to a seq_region record in the seq_region table in any 
     ensembl core database'''
