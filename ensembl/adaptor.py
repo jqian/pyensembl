@@ -17,7 +17,7 @@ class Driver (object):
     def __init__(self, host, user, dbname):
         self.conn = MySQLdb.connect(host, user)
         self.db = dbname
-        self.tb_adaptor = {'exon': ExonAdaptor, 'gene': GeneAdaptor, 'transcript': TranscriptAdaptor, 'seq_region': SeqregionAdaptor, 'translation': TranslationAdaptor, 'gene_stable_id': GeneStableIdAdaptor, 'transcript_stable_id': TranscriptStableIdAdaptor, 'translation_stable_id': TranslationStableIdAdaptor, 'exon_stable_id': ExonStableIdAdaptor, 'xref': XrefAdaptor}
+        self.tb_adaptor = {'exon': ExonAdaptor, 'gene': GeneAdaptor, 'transcript': TranscriptAdaptor, 'seq_region': SeqregionAdaptor, 'translation': TranslationAdaptor, 'gene_stable_id': GeneStableIdAdaptor, 'transcript_stable_id': TranscriptStableIdAdaptor, 'translation_stable_id': TranslationStableIdAdaptor, 'exon_stable_id': ExonStableIdAdaptor, 'xref': XrefAdaptor, 'prediction_transcript': PredictionTranscriptAdaptor}
 
     def getAdaptor(self, tbname):    
         adaptor_name = self.tb_adaptor[tbname]
@@ -248,6 +248,27 @@ class SeqregionAdaptor(Adaptor):
 
     #def fetch_seqregion_by_something(self, something):
 
+
+
+
+class PredictionTranscriptAdaptor(Adaptor):
+    '''Provides access to the prediction_transcript table in an ensembl core database'''
+
+    def __init__(self, dbname, cursor):
+        Adaptor.__init__(self, dbname, 'prediction_transcript', EnsemblRow, cursor)
+        #Adaptor.__init__(self, dbname, 'prediction_transcript', sqlgraph.TupleO, cursor)
+
+
+    def fetch_by_display_label(self, display_label):
+        #t = self.tbobj.select('where display_label = %s', (display_label), EnsemblRow)
+        t = self.tbobj.select('where display_label = %s', (display_label))
+        prediction_transcripts = []
+        for row in t:
+            prediction_transcript = PredictionTranscript(row.prediction_transcript_id)
+            prediction_transcripts.append(prediction_transcript)
+        return prediction_transcripts
+            
+
 class ExonAdaptor(Adaptor):
     '''Provides access to the exon table in an ensembl core database'''
 
@@ -461,7 +482,7 @@ if __name__ == '__main__': # example code
     print "\nLength of the sequence: ", len(s)
     print "The sequence: ", str(s)
    
-    '''
+   
     gene_stableID_adaptor = driver.getAdaptor('gene_stable_id')
     print "\ntest gene_stableID_adaptor.fetch_by_stable_id('ENSG00000215911')"
     #genes = gene_stableID_adaptor.fetch_by_stable_id('ENSG00000215911')
@@ -479,5 +500,18 @@ if __name__ == '__main__': # example code
     exon_stableID_adaptor = driver.getAdaptor('exon_stable_id')
     print "\ntest exon_stableID_adaptor.fetch_by_stable_id('ENSE00001493538')"
     _fetch_by_stableID_tester(exon_stableID_adaptor, 'ENSE00001493538')
-
+    '''
+    prediction_transcript_adaptor = driver.getAdaptor('prediction_transcript')
+    prediction_transcripts = prediction_transcript_adaptor.fetch_by_display_label('GENSCAN00000036948')
+    for index, pt in enumerate(prediction_transcripts):
+        print 'prediction_transcript', index, ':'
+        pt.getAttributes()
+        print 'start:', pt.rowobj.start
+        print 'seq_region_id:', pt.getSeqregionID()
+        print 'seq_region_start:', pt.getSeqregionStart()
+        print 'seq_region_end:', pt.getSeqregionEnd()
+        print 'seq_region_strand:', pt.getOrientation()
+        print 'analysis_id:', pt.getAnalysisID()
+        print 'display_label:', pt.getDisplayLabel()
+        
 
