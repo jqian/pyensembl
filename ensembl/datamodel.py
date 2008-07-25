@@ -289,7 +289,7 @@ class Sliceable(BaseModel):
     def get_stable_id(self, stableID_tb_name):
         '''Return the stable_id of this Sliceable, none if it doesn't have one'''
 
-        stableID_adaptor = self.driver.getAdaptor(stableID_tb_name)
+        stableID_adaptor = self.driver.get_Adaptor(stableID_tb_name)
         sliceable_id = self.rowobj.id
         stableID_record = stableID_adaptor[sliceable_id]
         stable_id = stableID_record.stable_id
@@ -297,7 +297,7 @@ class Sliceable(BaseModel):
 
     def get_created_date(self, stableID_tb_name):
         'Obtain the ensembl created date for the Sliceable if it has a stable id'
-        stableID_adaptor = self.driver.getAdaptor(stableID_tb_name)
+        stableID_adaptor = self.driver.get_Adaptor(stableID_tb_name)
         sliceable_id = self.rowobj.id
         stableID_record = stableID_adaptor[sliceable_id]
         created_date = stableID_record.created_date
@@ -305,7 +305,7 @@ class Sliceable(BaseModel):
     
     def get_modified_date(self, stableID_tb_name):
         'Obtain the ensembl modified date for the Sliceable if it has a stable id'
-        stableID_adaptor = self.driver.getAdaptor(stableID_tb_name)
+        stableID_adaptor = self.driver.get_Adaptor(stableID_tb_name)
         sliceable_id = self.rowobj.id
         stableID_record = stableID_adaptor[sliceable_id]
         modified_date = stableID_record.modified_date
@@ -314,7 +314,7 @@ class Sliceable(BaseModel):
     def getVersion(self, stableID_tb_name):
         'Obtain the ensembl version for the Sliceable if it has a stable id'
         
-        stableID_adaptor = self.driver.getAdaptor(stableID_tb_name)
+        stableID_adaptor = self.driver.get_Adaptor(stableID_tb_name)
         sliceable_id = self.rowobj.id
         stableID_record = stableID_adaptor[sliceable_id]
         version = stableID_record.version
@@ -326,7 +326,20 @@ class Sliceable(BaseModel):
 
 class Exon(Sliceable):
     '''An interface to an exon record in the exon table in an ensembl core 
-    database'''
+    database
+
+    >>> driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
+    >>> exon = driver.get_Adaptor('exon').get_by_dbID(95160)
+    >>> _sliceable_stableID_tester(exon, 'exon_stable_id')
+    <BLANKLINE>
+    get_stable_id(stableID_tb_name): ENSE00001493538
+    <BLANKLINE>
+    get_created_date(stableID_tb_name): 2006-03-10 00:00:00
+    <BLANKLINE>
+    get_modified_date(stableID_tb_name): 2006-03-10 00:00:00
+    <BLANKLINE>
+    getVersion(stableID_tb_name): 1
+    '''
 
     def __init__(self, rowobj):
         Sliceable.__init__(self, rowobj)
@@ -374,7 +387,7 @@ class Transcript(Sliceable):
 
         transcript_id = self.rowobj.id
         driver = self.driver
-        exon_adaptor = driver.getAdaptor('exon')
+        exon_adaptor = driver.get_Adaptor('exon')
         exons = exon_adaptor.fetch_exons_by_transcriptID(transcript_id)
         return exons
 
@@ -397,7 +410,7 @@ class Transcript(Sliceable):
     def getTranslations(self):
         'obtain its translation'
         
-        translation_adaptor = self.driver.getAdaptor('translation')
+        translation_adaptor = self.driver.get_Adaptor('translation')
         transcript_id = self.rowobj.transcript_id
         translations = translation_adaptor.fetch_translations_by_transcriptID(transcript_id)
         return translations
@@ -417,7 +430,7 @@ class Gene(Sliceable):
         'return transcripts if available, otherwise empty list'
 
         gene_id = self.rowobj.gene_id
-        transcript_adaptor = self.driver.getAdaptor('transcript')
+        transcript_adaptor = self.driver.get_Adaptor('transcript')
         transcripts = transcript_adaptor.fetch_transcripts_by_geneID(gene_id)
         return transcripts
     
@@ -502,10 +515,16 @@ def _getExons_tester(exons):
             #print 'Sequence:', str(e.getSequence())
             print 'Length of the sequence:', len(e.getSequence('exon'))
 
+def _test():
+    import doctest
+    doctest.testmod()
 
 if __name__ == '__main__': # example code
-    driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
+    
+    _test()
     '''
+    driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
+    
     print '\ntest results for the Seqregion class:'
     seq_region = Seqregion(143909)
     print '\nseq_region.getAttributes():'
@@ -513,9 +532,9 @@ if __name__ == '__main__': # example code
     print '\nseq_region.getCoordinateSystem():', seq_region.getCoordinateSystem() # 4
     print '\nseq_region.getName():', seq_region.getName() # AADC01095577.1.1.41877
     print '\nseq_region.getLength():', seq_region.getLength() # 41877
-    '''
+    """
     print '\n\ntest results for the Exon class:'
-    exon = driver.getAdaptor('exon').get_by_dbID(95160)
+    exon = driver.get_Adaptor('exon').get_by_dbID(95160)
     #exon = Exon(73777)
     
     #exon = Exon(95172)
@@ -523,7 +542,7 @@ if __name__ == '__main__': # example code
     #print exon.rowobj.seq_region_id # 226034
     #print exon.rowobj.start # 444865
     _sliceable_stableID_tester(exon, 'exon_stable_id')
-    '''
+    """
     _sliceable_tester(exon)
     print '\nmethods unique to the Exon class:'
     print '\nexon.getPhase():', exon.getPhase()
