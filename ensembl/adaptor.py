@@ -17,9 +17,10 @@ class Driver (object):
     def __init__(self, host, user, dbname):
         self.conn = MySQLdb.connect(host, user)
         self.db = dbname
-        self.tb_adaptor = {'exon': ExonAdaptor, 'gene': GeneAdaptor, 'transcript': TranscriptAdaptor, 'seq_region': SeqregionAdaptor, 'translation': TranslationAdaptor, 'gene_stable_id': GeneStableIdAdaptor, 'transcript_stable_id': TranscriptStableIdAdaptor, 'translation_stable_id': TranslationStableIdAdaptor, 'exon_stable_id': ExonStableIdAdaptor, 'xref': XrefAdaptor, 'prediction_transcript': PredictionTranscriptAdaptor}
+        self.tb_adaptor = {'exon': ExonAdaptor, 'gene': GeneAdaptor, 'transcript': TranscriptAdaptor, 'seq_region': SeqregionAdaptor, 'translation': TranslationAdaptor, 'gene_stable_id': GeneStableIdAdaptor, 'transcript_stable_id': TranscriptStableIdAdaptor, 'translation_stable_id': TranslationStableIdAdaptor, 'exon_stable_id': ExonStableIdAdaptor, 'xref': XrefAdaptor, 'prediction_transcript': PredictionTranscriptAdaptor, 'meta_coord': MetaCoordAdaptor}
+        self.row_object = {'exon': Exon, 'gene': Gene, 'transcript': Transcript, 'seq_region': Seqregion, 'translation': Translation, 'gene_stable_id': GeneStableID, 'transcript_stable_id': TranscriptStableID, 'translation_stable_id': TranslationStableID, 'exon_stable_id': ExonStableID, 'xref': Xref, 'prediction_transcript': PredictionTranscript}
 
-    def getAdaptor(self, tbname):    
+    def get_Adaptor(self, tbname):    
         adaptor_name = self.tb_adaptor[tbname]
         return adaptor_name(self.db, self.conn.cursor())
 
@@ -49,8 +50,8 @@ chromosome, start, end, strand).
         t = cursor.fetchall()[0]
         seq_region_ID = t[0]
         '''
-        t = seq_regiontb.select('where name = %s', (chromosome), None, 't1.seq_region_id')
-        # t = seq_regiontb.select('where name = %s', (chromosome))
+        # t = seq_regiontb.select('where name = %s', (chromosome), None, 't1.seq_region)
+        t = seq_regiontb.select('where name = %s', (chromosome))
         #seq_region_ID = t.next().seq_region_id
         row = t.next()
         seq_region_ID = row.seq_region_id
@@ -78,10 +79,20 @@ chromosome, start, end, strand).
         # create a SeqregionAdaptor table object
         seq_regiontb = seq_region.tbobj
         
+        # human genome
         import pygr.Data
-        hg18 = pygr.Data.Bio.Seq.Genome.HUMAN.hg18() # human genome
+        hg18 = pygr.Data.Bio.Seq.Genome.HUMAN.hg18() 
+
+        # ensembl sequences
+        tbname = self.dbname + '.dna'
+        dna = sqlgraph.SQLTable(tbname, cursor, 
+                            itemClass=EnsemblDNA,
+                            itemSliceClass=seqdb.SeqDBSlice,
+                            attrAlias=dict(seq='sequence'))
+
+
         # create a SeqRegion object 
-        srdb = SeqRegion(seq_regiontb, {17:hg18}, {17:'chr'})
+        srdb = SeqRegion(seq_regiontb, {17:hg18, 4:dna}, {17:'chr', 4:None})
         # create a [Exon/Gene/Transcript]Adaptor object depending on the specified unit_name
         unit_adaptor = self.getAdaptor(unit_name)
         # create a []Adaptor table object
@@ -106,19 +117,41 @@ chromosome, start, end, strand).
         chr_seq = srdb[seq_region_ID]
         # convert an ensembl start 1-offset coordinate to a Python zero-offset coordinate
         python_start = start - 1
-        ival = chr_seq[python_start:end]    
-        # find units in this sequence interval
+        ival = chr_seq[python_start:end] 
+
+        # retrieve the slice according to the specified strand
         if strand == -1:
-            unit_list = mapper[-ival]
+            slice = -ival
         else:
-            unit_list = mapper[ival]
+            slice = ival
+
+        # check which coord_system the required feature belongs to
+        meta_coord_adaptor = self.getAdaptor('meta_coord')
+        meta_coord_tb = meta_coord_adaptor.tbobj
+        t = meta_coord_tb.select('where table_name = %s', (unit_name))
+        row = t.next()
+        unit_cs_id = row.coord_system_id
+        if unit_cs_id == 4:
+            # transform the sequence interval from the genomic coordinates to the contig coordinates
+        
+            # create an assembly mapper
+            amap = AssemblyMapper(srdb, 4, 17)         
+            # map the genomic slice to a contig slice
+            contig_slice = (~amap)[slice]         
+            #contig = srdb[149878][pt.sequence.start:pt.sequence.stop]
+            slice = contig_slice
+        
+        # find units in this genomic or contig sequence interval
+        unit_list = mapper[slice]
+
         # test
         print '\n', unit_name, 'in interval', start, '-', end, 'on both strands of chromosome', chromosome,':'
         if len(unit_list) == 0:
             print 'None'
         else:
             print unit_list # find units in this interval on both strands
-        
+
+       
         return unit_list
 
 
@@ -137,7 +170,16 @@ class Adaptor(object):
     def __getitem__(self, i):
         return self.tbobj[i]
 
+    def get_by_dbID(self, i):
+        'Obtain a record object from an ensembl database table'
 
+        driver = getDriver('ensembldb.ensembl.org', 'anonymous', self.db)
+        row_obj = self[i]
+        record_obj_class = driver.row_object[self.tb]
+        record_obj = record_obj_class(row_obj)
+        return record_obj
+        
+        
 '''
 class ExonTranscriptAdaptor(Adaptor):
     'Provides access to the exon_transcript table in an ensembl core database'
@@ -145,6 +187,12 @@ class ExonTranscriptAdaptor(Adaptor):
     def __init__(self, dbname, cursor):
         Adaptor.__init__(self, dbname, 'exon_transcript', sqlgraph.TupleO, cursor)
 '''
+
+class MetaCoordAdaptor(Adaptor):
+    '''Provides access to the meta_coord table in an ensembl core database'''
+
+    def __init__(self, dbname, cursor):
+        Adaptor.__init__(self, dbname, 'meta_coord', sqlgraph.TupleO, cursor)
 
 
 class XrefAdaptor(Adaptor):
@@ -260,6 +308,39 @@ class PredictionTranscriptAdaptor(Adaptor):
 
 
     def fetch_by_display_label(self, display_label):
+        ''' This is a method to
+        >>> driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
+        >>> prediction_transcript_adaptor = driver.getAdaptor('prediction_transcript')
+        >>> prediction_transcripts = prediction_transcript_adaptor.fetch_by_display_label('GENSCAN00000036948')
+        >>> for index, pt in enumerate(prediction_transcripts):
+        ...    print 'prediction_transcript', index, ':'
+        ...    pt.getAttributes()
+        ...    print 'start:', pt.rowobj.start
+        ...    print 'seq_region_id:', pt.getSeqregionID()
+        ...    print 'seq_region_start:', pt.getSeqregionStart()
+        ...    print 'seq_region_end:', pt.getSeqregionEnd()
+        ...    print 'seq_region_strand:', pt.getOrientation()
+        ...    print 'analysis_id:', pt.getAnalysisID()
+        ...    print 'display_label:', pt.getDisplayLabel()
+        ...
+        prediction_transcript 0 :
+        analysis_id  =  5
+        seq_region_start  =  48849
+        seq_region_end  =  66632
+        seq_region_id  =  149878
+        prediction_transcript_id  =  36948
+        display_label  =  GENSCAN00000036948
+        id  =  36948
+        seq_region_strand  =  -1
+        start: 48848
+        seq_region_id: 149878
+        seq_region_start: 48849
+        seq_region_end: 66632
+        seq_region_strand: -1
+        analysis_id: 5
+        display_label: GENSCAN00000036948
+        '''
+    
         #t = self.tbobj.select('where display_label = %s', (display_label), EnsemblRow)
         t = self.tbobj.select('where display_label = %s', (display_label))
         prediction_transcripts = []
@@ -268,6 +349,36 @@ class PredictionTranscriptAdaptor(Adaptor):
             prediction_transcripts.append(prediction_transcript)
         return prediction_transcripts
             
+    def fetch_all_by_seqregion(self, chr, start, end, strand, driver):
+        'find all the prediction_transcripts in a genomic region'
+
+        # find all the prediction_transcripts on both strands of a genomic region
+        unit_list = driver._fetch_units_by_seqregion(chr, start, end, strand, 'transcript')
+        # return only the list of transcripts found on the specified strand
+        prediction_transcripts = []
+        for annobj in unit_list:
+            if annobj.orientation == 1:
+                t = PredictionTranscript(annobj.id)
+                prediction_transcripts.append(t)
+        if len(prediction_transcripts) == 0:
+            print 'no prediction transcript found on this strand(', strand, ')'
+        return prediction_transcripts
+
+    def fetch_all_by_seqregion(self, chr, start, end, strand, driver):
+        'find all the transcripts in a genomic region'
+
+        # find all the transcripts on both strands of a genomic region
+        unit_list = driver._fetch_units_by_seqregion(chr, start, end, strand, 'transcript')
+        # return only the list of transcripts found on the specified strand
+        transcripts = []
+        for annobj in unit_list:
+            if annobj.orientation == 1:
+                t = Transcript(annobj.id)
+                transcripts.append(t)
+        if len(transcripts) == 0:
+            print 'no transcript found on this strand(', strand, ')'
+        return transcripts
+    
 
 class ExonAdaptor(Adaptor):
     '''Provides access to the exon table in an ensembl core database'''
@@ -427,11 +538,16 @@ def _fetch_by_stableID_tester(myAdaptor, stable_id):
         print index, ':'
         u.getAttributes()
     
-   
+def _test():
+    import doctest
+    doctest.testmod()
     
 if __name__ == '__main__': # example code
     
+    _test()
+    '''
     driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
+    '''
     '''
     exon_adaptor = driver.getAdaptor('exon')
     #exons = exon_adaptor.fetch_exons_by_seqregion(1, 6023217, 6023986, 1, driver)
@@ -501,6 +617,7 @@ if __name__ == '__main__': # example code
     print "\ntest exon_stableID_adaptor.fetch_by_stable_id('ENSE00001493538')"
     _fetch_by_stableID_tester(exon_stableID_adaptor, 'ENSE00001493538')
     '''
+    '''
     prediction_transcript_adaptor = driver.getAdaptor('prediction_transcript')
     prediction_transcripts = prediction_transcript_adaptor.fetch_by_display_label('GENSCAN00000036948')
     for index, pt in enumerate(prediction_transcripts):
@@ -513,5 +630,5 @@ if __name__ == '__main__': # example code
         print 'seq_region_strand:', pt.getOrientation()
         print 'analysis_id:', pt.getAnalysisID()
         print 'display_label:', pt.getDisplayLabel()
-        
+     '''  
 
