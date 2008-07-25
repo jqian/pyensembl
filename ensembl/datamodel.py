@@ -1,7 +1,6 @@
 from ensembl.adaptor import *
 
 
-
 def _getDriver():
     '''Obtain an ensembl database connection.  
     Thus, in order to connect to a different database, this is the only place needs to be modified!'
@@ -12,15 +11,15 @@ def _getDriver():
     return getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
 
 
-
 class BaseModel(object):
     '''A generic interface to a row object in a table in a core ensembl database
     '''
-    
-    def __init__(self, tbname, i):
+
+    def __init__(self, rowobj):
         
         driver = _getDriver()
-        self.rowobj = driver.getAdaptor(tbname)[i]
+        #self.rowobj = driver.getAdaptor(tbname)[i]
+        self.rowobj = rowobj
         self.driver = driver
         
     def getAttributes(self):
@@ -33,8 +32,9 @@ class BaseModel(object):
 class Xref(BaseModel):
     '''An interface to a record in the xref table in any ensembl core database'''
 
-    def __init__(self, i):
-        BaseModel.__init__(self, 'xref', i)
+    def __init__(self, rowobj):
+
+        BaseModel.__init__(self, rowobj)
 
     def get_display_label(self):
         return self.rowobj.display_label
@@ -44,8 +44,8 @@ class Xref(BaseModel):
 class Translation(BaseModel):
     '''An interface to a translation record in the translation table in any ensmbl core database'''
 
-    def __init__(self, i):
-        BaseModel.__init__(self, 'translation', i)
+    def __init__(self, rowobj):
+        BaseModel.__init__(self, rowobj)
 
     def getTranscriptID(self):
        return self.rowobj.transcript_id
@@ -71,11 +71,12 @@ class Translation(BaseModel):
         translation_stableID_adaptor = self.driver.getAdaptor('translation_stable_id')
         created_date = translation_stableID_adaptor[self.translation_id].rowobj.
     '''
+
 class StableID(BaseModel):
     '''An interface to a generic stable_id record in a generic stable_id table in any ensembl core database'''
 
-    def __init__(self, tbname, i):
-        BaseModel.__init__(self, tbname, i)
+    def __init__(self, rowobj):
+        BaseModel.__init__(self, rowobj)
 
     def getStableID(self):
         return self.rowobj.stable_id
@@ -93,37 +94,37 @@ class StableID(BaseModel):
 class GeneStableID(StableID):
     '''An interface to a record in the gene_stable_id table in any ensembl core database'''
 
-    def __init__(self, i):
-        StableID.__init__(self, 'gene_stable_id', i)
+    def __init__(self, rowobj):
+        StableID.__init__(self, rowobj)
 
 
 class TranscriptStableID(StableID):
     '''An interface to a record in the transcript_stable_id table in any ensembl core database'''
 
-    def __init__(self, i):
-        StableID.__init__(self, 'transcript_stable_id', i)
+    def __init__(self, rowobj):
+        StableID.__init__(self, rowobj)
 
 
 class ExonStableID(StableID):
     '''An interface to a record in the exon_stable_id table in any ensembl core database'''
 
-    def __init__(self, i):
-        StableID.__init__(self, 'exon_stable_id', i)
+    def __init__(self, rowobj):
+        StableID.__init__(self, rowobj)
 
 
 class TranslationStableID(StableID):
     '''An interface to a record in the translation_stable_id table in any ensembl core database'''
 
-    def __init__(self, i):
-        StableID.__init__(self, 'translation_stable_id', i)
+    def __init__(self, rowobj):
+        StableID.__init__(self, rowobj)
 
 
 
 class PredictionTranscript(BaseModel):
     '''An interface to a prediction_transcript record in any ensembl core database'''
 
-    def __init__(self, i):
-        BaseModel.__init__(self, 'prediction_transcript', i)
+    def __init__(self, rowobj):
+        BaseModel.__init__(self, rowobj)
 
     def getSeqregionID(self):
         return self.rowobj.seq_region_id
@@ -149,8 +150,8 @@ class Seqregion(BaseModel):
     '''An interface to a seq_region record in the seq_region table in any 
     ensembl core database'''
 
-    def __init__(self, i):
-        BaseModel.__init__(self, 'seq_region', i)
+    def __init__(self, rowobj):
+        BaseModel.__init__(self, rowobj)
 
     def getCoordinateSystem(self):
         return self.rowobj.coord_system_id
@@ -165,8 +166,8 @@ class Seqregion(BaseModel):
 class Sliceable(BaseModel):
     '''An interface to a generic record in a table that has a seq_region assigneto it based on the ensembl coordinate system (seq_region_id, seq_region_start, seq_region_end and seq_region_strand)'''
 
-    def __init__(self, tbname, i):
-        BaseModel.__init__(self, tbname, i)
+    def __init__(self, rowobj):
+        BaseModel.__init__(self, rowobj)
 
     def getSeqregionID(self):
         return self.rowobj.seq_region_id
@@ -327,8 +328,8 @@ class Exon(Sliceable):
     '''An interface to an exon record in the exon table in an ensembl core 
     database'''
 
-    def __init__(self, i):
-        Sliceable.__init__(self, 'exon', i)
+    def __init__(self, rowobj):
+        Sliceable.__init__(self, rowobj)
     
     def getPhase(self):
         return self.rowobj.phase
@@ -362,8 +363,8 @@ class Exon(Sliceable):
 class Transcript(Sliceable):
     '''An interface to a transcript record in the transcript table in an ensembl core database'''
 
-    def __init__(self, i):
-        Sliceable.__init__(self, 'transcript', i)
+    def __init__(self, rowobj):
+        Sliceable.__init__(self, rowobj)
 
     def getGeneID(self):
         return self.rowobj.gene_id
@@ -409,8 +410,8 @@ class Transcript(Sliceable):
 class Gene(Sliceable):
     '''An interface to a gene record in the gene table in an ensembl core database'''
 
-    def __init__(self, i):
-        Sliceable.__init__(self, 'gene', i)
+    def __init__(self, rowobj):
+        Sliceable.__init__(self, rowobj)
        
     def getTranscripts(self):
         'return transcripts if available, otherwise empty list'
@@ -503,6 +504,7 @@ def _getExons_tester(exons):
 
 
 if __name__ == '__main__': # example code
+    driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
     '''
     print '\ntest results for the Seqregion class:'
     seq_region = Seqregion(143909)
@@ -513,10 +515,11 @@ if __name__ == '__main__': # example code
     print '\nseq_region.getLength():', seq_region.getLength() # 41877
     '''
     print '\n\ntest results for the Exon class:'
+    exon = driver.getAdaptor('exon').get_by_dbID(95160)
     #exon = Exon(73777)
     
     #exon = Exon(95172)
-    exon = Exon(95160)
+    #exon = Exon(95160)
     #print exon.rowobj.seq_region_id # 226034
     #print exon.rowobj.start # 444865
     _sliceable_stableID_tester(exon, 'exon_stable_id')
@@ -530,12 +533,12 @@ if __name__ == '__main__': # example code
     exon_sequence = exon.getSequence('exon')
     print str(exon_sequence)
     print '\nthe length of this exon sequence:', len(exon_sequence)
-    '''
+    
     print '\n\ntest results for the Gene class:'
     #gene = Gene(121)
     gene = Gene(8946)
     _sliceable_stableID_tester(gene, 'gene_stable_id')
-    '''
+    
     _sliceable_tester(gene)
     print '\nmethods unique to the Gene class:'
     print '\ngene.getSequence(\'gene\')'   
@@ -575,12 +578,12 @@ if __name__ == '__main__': # example code
     created_date = gene.get_created_date('gene_stable_id')
     print 'created date: ', created_date
     
-    '''
+    
     print '\n\ntest results for the Transcript class:'
     #transcript = Transcript(76)
     transcript = Transcript(15960)
     _sliceable_stableID_tester(transcript, 'transcript_stable_id')
-    '''
+    
     _sliceable_tester(transcript)
     print '\nmethods unique to the Transcript class:'
     print '\ntranscript.getSequence(\'transcript\')'   
