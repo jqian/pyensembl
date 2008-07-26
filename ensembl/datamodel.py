@@ -18,7 +18,6 @@ class BaseModel(object):
     def __init__(self, rowobj):
         
         driver = _getDriver()
-        #self.rowobj = driver.getAdaptor(tbname)[i]
         self.rowobj = rowobj
         self.driver = driver
         
@@ -119,30 +118,65 @@ class TranslationStableID(StableID):
         StableID.__init__(self, rowobj)
 
 
+class PeptideArchive(BaseModel):
+    '''
+    An interface to a row record in the peptide_archive table
+    >>> driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
+    >>> peptide_archive_adaptor = driver.get_Adaptor('peptide_archive')
+    >>> peptide_archive = peptide_archive_adaptor.get_by_dbID(100)
+    >>> peptide_archive.getAttributes()
+    peptide_seq  =  MKKARNDEYENLFNMIVEIPRWTNAKMEIATKEPMNPIKQYVKDGKLRYVANIFPYKGYIWNYGTLPQTWEDPHEKDKSTNCFGDNDPIDVCEIGSKILSCGEVIHVKILGILALIDEGETDWKLIAINANDPEASKFHDIDDVKKFKPGYLEATLNWFRLYKVPDGKPENQFAFNGEFKNKAFALEVIKSTHQCWKALLMKKCNGGAINCTNVQISDSPFRCTQEEARSLVESVSSSPNKESNEEEQVWHFLGK
+    peptide_archive_id  =  100
+    id  =  100
+    md5_checksum  =  A9E4359D28F51F9FF317B378C168BF8D
+    '''
 
+    def __init__(self, rowobj):
+        BaseModel.__init__(self, rowobj)
+
+"""
+class GeneArchive(BaseModel):
+    '''
+    An interface to a row record in the gene_archive table
+
+    
+    '''
+
+    def __init__(self, rowobj):
+        BaseModel.__init__(self, rowobj)
+"""
+
+class PredictionExon(BaseModel):
+    '''
+    An interface to a row record in the prediction_exon table
+
+    >>> driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
+    >>> predic_exon_adaptor = driver.get_Adaptor('prediction_exon')
+    >>> predic_exon = predic_exon_adaptor.get_by_dbID(10)
+    >>> predic_exon.getAttributes()
+    prediction_exon_id  =  10
+    p_value  =  0.039
+    seq_region_id  =  149762
+    seq_region_end  =  31625
+    exon_rank  =  3
+    start_phase  =  0
+    seq_region_start  =  31474
+    score  =  3.84
+    prediction_transcript_id  =  3
+    id  =  10
+    seq_region_strand  =  1
+    '''
+
+    def __init__(self, rowobj):
+        BaseModel.__init__(self, rowobj)
+
+    
 class PredictionTranscript(BaseModel):
     '''An interface to a prediction_transcript record in any ensembl core database'''
 
     def __init__(self, rowobj):
         BaseModel.__init__(self, rowobj)
 
-    def getSeqregionID(self):
-        return self.rowobj.seq_region_id
-
-    def getSeqregionStart(self):
-        return self.rowobj.seq_region_start
-
-    def getSeqregionEnd(self):
-        return self.rowobj.seq_region_end
-
-    def getOrientation(self):
-        return self.rowobj.seq_region_strand
-
-    def getAnalysisID(self):
-        return self.rowobj.analysis_id
-
-    def getDisplayLabel(self):
-        return self.rowobj.display_label
 
 
 
