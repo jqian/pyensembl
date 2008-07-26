@@ -17,8 +17,8 @@ class Driver (object):
     def __init__(self, host, user, dbname):
         self.conn = MySQLdb.connect(host, user)
         self.db = dbname
-        self.tb_adaptor = {'exon': ExonAdaptor, 'gene': GeneAdaptor, 'transcript': TranscriptAdaptor, 'seq_region': SeqregionAdaptor, 'translation': TranslationAdaptor, 'gene_stable_id': GeneStableIdAdaptor, 'transcript_stable_id': TranscriptStableIdAdaptor, 'translation_stable_id': TranslationStableIdAdaptor, 'exon_stable_id': ExonStableIdAdaptor, 'xref': XrefAdaptor, 'prediction_transcript': PredictionTranscriptAdaptor, 'meta_coord': MetaCoordAdaptor}
-        self.row_object = {'exon': Exon, 'gene': Gene, 'transcript': Transcript, 'seq_region': Seqregion, 'translation': Translation, 'gene_stable_id': GeneStableID, 'transcript_stable_id': TranscriptStableID, 'translation_stable_id': TranslationStableID, 'exon_stable_id': ExonStableID, 'xref': Xref, 'prediction_transcript': PredictionTranscript}
+        self.tb_adaptor = {'exon': ExonAdaptor, 'gene': GeneAdaptor, 'transcript': TranscriptAdaptor, 'seq_region': SeqregionAdaptor, 'translation': TranslationAdaptor, 'gene_stable_id': GeneStableIdAdaptor, 'transcript_stable_id': TranscriptStableIdAdaptor, 'translation_stable_id': TranslationStableIdAdaptor, 'exon_stable_id': ExonStableIdAdaptor, 'xref': XrefAdaptor, 'prediction_transcript': PredictionTranscriptAdaptor, 'meta_coord': MetaCoordAdaptor, 'prediction_exon': PredictionExonAdaptor, 'peptide_archive': PeptideArchiveAdaptor}
+        self.row_object = {'exon': Exon, 'gene': Gene, 'transcript': Transcript, 'seq_region': Seqregion, 'translation': Translation, 'gene_stable_id': GeneStableID, 'transcript_stable_id': TranscriptStableID, 'translation_stable_id': TranslationStableID, 'exon_stable_id': ExonStableID, 'xref': Xref, 'prediction_transcript': PredictionTranscript, 'prediction_exon': PredictionExon, 'peptide_archive': PeptideArchive}
 
     def get_Adaptor(self, tbname):    
         adaptor_name = self.tb_adaptor[tbname]
@@ -296,6 +296,27 @@ class SeqregionAdaptor(Adaptor):
 
     #def fetch_seqregion_by_something(self, something):
 
+
+class PeptideArchiveAdaptor(Adaptor):
+    '''Provides access to the peptide_archive table in an ensembl core database'''
+
+    def __init__(self, dbname, cursor):
+        Adaptor.__init__(self, dbname, 'peptide_archive', sqlgraph.TupleO, cursor)
+
+"""
+class GeneArchiveAdaptor(Adaptor):
+    '''Provides access to the gene_archive table in an ensembl core database'''
+
+    def __init__(self, dbname, cursor):
+        Adaptor.__init__(self, dbname, 'gene_archive', sqlgraph.TupleO, cursor)
+"""
+
+
+class PredictionExonAdaptor(Adaptor):
+    '''Provides access to the prediction_exon table in an ensembl core database'''
+
+    def __init__(self, dbname, cursor):
+        Adaptor.__init__(self, dbname, 'prediction_exon', EnsemblRow, cursor)
 
 
 
