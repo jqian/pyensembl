@@ -172,12 +172,28 @@ class PredictionExon(BaseModel):
 
     
 class PredictionTranscript(BaseModel):
-    '''An interface to a prediction_transcript record in any ensembl core database'''
+    '''
+    An interface to a prediction_transcript record in any ensembl core database
+    
+    >>> driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
+    >>> predic_transcript_adaptor = driver.get_Adaptor('prediction_transcript')
+    >>> predic_transcript = predic_transcript_adaptor.get_by_dbID(150)
+    >>> predic_exons = predic_transcript.get_all_Exons()
+    >>> for predic_exon in predic_exons:
+    ...     print predic_exon.rowobj.prediction_exon_id
+    ...
+    822
+    823
+    824
+    '''
 
     def __init__(self, rowobj):
         BaseModel.__init__(self, rowobj)
 
-
+    def get_all_Exons(self):
+        predic_exon_adaptor = self.driver.get_Adaptor('prediction_exon')
+        predic_exons = predic_exon_adaptor.get_all_by_ptranscriptID(self.rowobj.prediction_transcript_id)
+        return predic_exons
 
 
 class Seqregion(BaseModel):
@@ -556,9 +572,15 @@ def _test():
 if __name__ == '__main__': # example code
     
     _test()
-    '''
+    """
     driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
-    
+    predic_transcript_adaptor = driver.get_Adaptor('prediction_transcript')
+    predic_transcript = predic_transcript_adaptor.get_by_dbID(150)
+    predic_exons = predic_transcript.get_all_Exons()
+    for predic_exon in predic_exons:
+        print predic_exon.rowobj.prediction_exon_id
+    """
+    '''
     print '\ntest results for the Seqregion class:'
     seq_region = Seqregion(143909)
     print '\nseq_region.getAttributes():'
