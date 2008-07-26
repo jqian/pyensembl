@@ -318,6 +318,13 @@ class PredictionExonAdaptor(Adaptor):
     def __init__(self, dbname, cursor):
         Adaptor.__init__(self, dbname, 'prediction_exon', EnsemblRow, cursor)
 
+    def get_all_by_ptranscriptID(self, predic_transcriptID):
+        t = self.tbobj.select('where prediction_transcript_id = %s', (predic_transcriptID)) 
+        predic_exons = []
+        for row in t:
+            predic_exon = PredictionExon(row)
+            predic_exons.append(predic_exon)
+        return predic_exons
 
 
 class PredictionTranscriptAdaptor(Adaptor):
@@ -565,10 +572,10 @@ def _test():
     
 if __name__ == '__main__': # example code
     
-    _test()
-    '''
+    #_test()
+    
     driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
-    '''
+    
     '''
     exon_adaptor = driver.getAdaptor('exon')
     #exons = exon_adaptor.fetch_exons_by_seqregion(1, 6023217, 6023986, 1, driver)
@@ -637,8 +644,8 @@ if __name__ == '__main__': # example code
     exon_stableID_adaptor = driver.getAdaptor('exon_stable_id')
     print "\ntest exon_stableID_adaptor.fetch_by_stable_id('ENSE00001493538')"
     _fetch_by_stableID_tester(exon_stableID_adaptor, 'ENSE00001493538')
-    '''
-    '''
+    
+    
     prediction_transcript_adaptor = driver.getAdaptor('prediction_transcript')
     prediction_transcripts = prediction_transcript_adaptor.fetch_by_display_label('GENSCAN00000036948')
     for index, pt in enumerate(prediction_transcripts):
@@ -651,5 +658,5 @@ if __name__ == '__main__': # example code
         print 'seq_region_strand:', pt.getOrientation()
         print 'analysis_id:', pt.getAnalysisID()
         print 'display_label:', pt.getDisplayLabel()
-     '''  
+    '''   
 
