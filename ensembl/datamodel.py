@@ -1,5 +1,6 @@
 from ensembl.adaptor import *
-
+from ensembl.seqregion import *
+from seqregion import EnsemblRow
 
 def _getDriver():
     '''Obtain an ensembl database connection.  
@@ -11,49 +12,31 @@ def _getDriver():
     return getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
 
 
-class BaseModel(object):
-    '''A generic interface to a row object in a table in a core ensembl database
+class BaseModel(sqlgraph.TupleO):
+    '''A generic interface to an item object in a table in the ensembl database
     '''
-
-    def __init__(self, rowobj):
-        
-        driver = _getDriver()
-        self.rowobj = rowobj
-        self.driver = driver
+    
         
     def getAttributes(self):
         'print out this row record'
-	for k, v in self.rowobj._attrcol.iteritems():
-	    print k, ' = ', self.rowobj.data[v]
+	#for k, v in self.rowobj._attrcol.iteritems():
+        #    print k, ' = ', self.rowobj.data[v]
+        for k, v in self._attrcol.iteritems():
+	    print k, ' = ', self.data[v]
 
 
 
 class Xref(BaseModel):
     '''An interface to a record in the xref table in any ensembl core database'''
 
-    def __init__(self, rowobj):
-
-        BaseModel.__init__(self, rowobj)
-
-    def get_display_label(self):
-        return self.rowobj.display_label
+    
+    #def get_display_label(self):
+    #    return self.rowobj.display_label
 
 
 
 class Translation(BaseModel):
-    '''An interface to a translation record in the translation table in any ensmbl core database'''
-
-    def __init__(self, rowobj):
-        BaseModel.__init__(self, rowobj)
-
-    def getTranscriptID(self):
-       return self.rowobj.transcript_id
-
-    def get_start_exon_id(self):
-        return self.rowobj.start_exon_id
-
-    def get_end_exon_id(self):
-        return self.rowobj.end_exon_id
+    '''An interface to an item in the translation table in any ensembl core database'''
 
     def getExons(self):
         transcript_id = self.rowobj.transcript_id
@@ -74,49 +57,32 @@ class Translation(BaseModel):
 class StableID(BaseModel):
     '''An interface to a generic stable_id record in a generic stable_id table in any ensembl core database'''
 
-    def __init__(self, rowobj):
-        BaseModel.__init__(self, rowobj)
 
-    def getStableID(self):
-        return self.rowobj.stable_id
+    #def getStableID(self):
+    #    return self.rowobj.stable_id
 
-    def getVersion(self):
-        return self.rowobj.version
+    #def getVersion(self):
+    #    return self.rowobj.version
 
-    def get_created_date(self):
-        return self.rowobj.created_date
+    #def get_created_date(self):
+    #    return self.rowobj.created_date
 
-    def get_modified_date(self):
-        return self.rowobj.modified_date
+    #def get_modified_date(self):
+    #    return self.rowobj.modified_date
 
 
 class GeneStableID(StableID):
     '''An interface to a record in the gene_stable_id table in any ensembl core database'''
 
-    def __init__(self, rowobj):
-        StableID.__init__(self, rowobj)
-
 
 class TranscriptStableID(StableID):
     '''An interface to a record in the transcript_stable_id table in any ensembl core database'''
 
-    def __init__(self, rowobj):
-        StableID.__init__(self, rowobj)
-
-
 class ExonStableID(StableID):
     '''An interface to a record in the exon_stable_id table in any ensembl core database'''
 
-    def __init__(self, rowobj):
-        StableID.__init__(self, rowobj)
-
-
 class TranslationStableID(StableID):
     '''An interface to a record in the translation_stable_id table in any ensembl core database'''
-
-    def __init__(self, rowobj):
-        StableID.__init__(self, rowobj)
-
 
 class PeptideArchive(BaseModel):
     '''
@@ -131,8 +97,6 @@ class PeptideArchive(BaseModel):
     md5_checksum  =  A9E4359D28F51F9FF317B378C168BF8D
     '''
 
-    def __init__(self, rowobj):
-        BaseModel.__init__(self, rowobj)
 
 """
 class GeneArchive(BaseModel):
@@ -166,12 +130,8 @@ class PredictionExon(BaseModel):
     id  =  10
     seq_region_strand  =  1
     '''
-
-    def __init__(self, rowobj):
-        BaseModel.__init__(self, rowobj)
-
-    
-class PredictionTranscript(BaseModel):
+   
+class PredictionTranscript(BaseModel, EnsemblRow):
     '''
     An interface to a prediction_transcript record in any ensembl core database
     
@@ -187,9 +147,6 @@ class PredictionTranscript(BaseModel):
     824
     '''
 
-    def __init__(self, rowobj):
-        BaseModel.__init__(self, rowobj)
-
     def get_all_Exons(self):
         predic_exon_adaptor = self.driver.get_Adaptor('prediction_exon')
         predic_exons = predic_exon_adaptor.get_all_by_ptranscriptID(self.rowobj.prediction_transcript_id)
@@ -200,17 +157,15 @@ class Seqregion(BaseModel):
     '''An interface to a seq_region record in the seq_region table in any 
     ensembl core database'''
 
-    def __init__(self, rowobj):
-        BaseModel.__init__(self, rowobj)
 
-    def getCoordinateSystem(self):
-        return self.rowobj.coord_system_id
+    #def getCoordinateSystem(self):
+    #    return self.rowobj.coord_system_id
 
-    def getName(self):
-        return self.rowobj.name
+    #def getName(self):
+    #    return self.rowobj.name
 
-    def getLength(self):
-        return self.rowobj.length
+    #def getLength(self):
+    #    return self.rowobj.length
 
 
 class Sliceable(BaseModel):
