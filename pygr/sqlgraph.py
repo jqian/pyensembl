@@ -7,6 +7,27 @@ from classutil import ClassicUnpickler,methodFactory,standard_getstate,\
      override_rich_cmp,generate_items,get_shadow_class
     
 
+class DBServerInfo(object):
+    'picklable reference to a database server'
+
+    def __init__(self, get_connection=None, **kwargs):
+        self.kwargs = kwargs # connection arguments
+        self.get_connection = get_connection
+    def cursor(self):
+        'returns cursor to this database server'
+        try:
+            return self._cursor
+        except AttributeError:
+            if self.get_connection is None: # default: use MySQL
+                from MySQLdb import connect
+            else:
+                connect = self.get_connection
+            self._cursor = connect(**self.kwargs).cursor()
+            return self._cursor
+    def __getstate__(self):
+        'return all picklable arguments'
+        return dict(kwargs=self.kwargs, get_connection=self.get_connection)
+
 class TupleO(object):
     """Provide attribute interface to a tuple.  Subclass this and create _attrcol
     that maps attribute names to tuple index values."""
@@ -86,10 +107,13 @@ class SQLTableBase(dict):
     "Store information about an SQL table as dict keyed by primary key"
     def __init__(self,name,cursor=None,itemClass=None,attrAlias=None,
                  clusterKey=None,createTable=None,graph=None,maxCache=None,
-                 arraysize=1024, itemSliceClass=None, **kwargs):
+                 arraysize=1024, itemSliceClass=None, serverInfo=None, **kwargs):
         dict.__init__(self) # INITIALIZE EMPTY DICTIONARY
         if cursor is None:
-            name,cursor=getNameCursor(name,**kwargs)
+            if serverInfo is not None: # get cursor from serverInfo
+                cursor=serverInfo.cursor()
+            else: # try to read connection info from name or config file
+                name,cursor=getNameCursor(name,**kwargs)
         if createTable is not None: # RUN COMMAND TO CREATE THIS TABLE
             cursor.execute(createTable)
         cursor.execute('describe %s' % name)
@@ -134,7 +158,7 @@ class SQLTableBase(dict):
         return id(self)
     def __reduce__(self): ############################# SUPPORT FOR PICKLING
         return (ClassicUnpickler, (self.__class__,self.__getstate__()))
-    _pickleAttrs = dict(name=0,clusterKey=0,maxCache=0,arraysize=0)
+    _pickleAttrs = dict(name=0,clusterKey=0,maxCache=0,arraysize=0,attrAlias=0,serverInfo=0)
     def __getstate__(self):
         state = standard_getstate(self)
         state['attrAlias'] = self.getAttrAlias() # SAVE ATTRIBUTE ALIASES

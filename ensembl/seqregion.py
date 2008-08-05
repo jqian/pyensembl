@@ -1,4 +1,13 @@
 
+'''
+class SQLTableMinimal:
+    "The part of sqlgraph.SQLTable that can be pickled"
+    def __init__(self,name,data,description,primary_key):
+        self.name=name
+        self.data=data
+        self.description=description
+        self.primary_key=primary_key
+'''
 
 class SeqRegionInv(object):
     'inverse mapping seq obj --> Ensembl seq_region_id'
@@ -84,6 +93,53 @@ class EnsemblRow(sqlgraph.TupleO):
     start = SeqRegionStartDescr()
 
 
+'''
+class TranscriptToExonInv(object):
+    'inverse of a TranscriptToExon mapping: Ensembl exon obj -> Ensembl transcript obj'
+
+    def __init__(self, mapper):
+        self.inverseDB = mapper
+    
+    def __getitem__(self, k):
+        'find corresponding transcripts to the given exon'
+
+        exonID = k.id
+        n = self.inverseDB.cursor.execute('select transcript_id from %s where exon_id = %s' %(self.inverseDB.exon_transcript, exonID))
+        t = self.inverseDB.cursor.fetchall()
+        transcripts = []
+        for row in t:
+            id = row[0]
+            transcript = self.inverseDB.transcriptDB[id]
+            transcripts.append(transcript)
+        return transcripts
+
+    def __invert__(self):
+        return self.inverseDB
+
+class TranscriptToExon(object):
+    'Provide a mapping of a transcript obj -> a set of exon objects'
+
+    def __init__(self, transcriptDB, exonDB):
+        self.exonDB = exonDB
+        self.transcriptDB = transcriptDB
+        self.inverseDB = TranscriptToExonInv(self)
+        self.exon_transcript = self.exonDB.name.split('.')[0] + '.exon_transcript'
+        self.cursor = self.exonDB.cursor 
+
+    def __getitem__(self, k):
+        transcriptID = k.id
+        n = self.cursor.execute('select exon_id from %s where transcript_id = %s' %(self.exon_transcript, transcriptID))
+        t = self.cursor.fetchall()
+        exons = []
+        for row in t:
+            id = row[0]
+            exon = self.exonDB[id]
+            exons.append(exon)
+        return exons
+
+    def __invert__(self):
+        return self.inverseDB
+'''
 class EnsemblMapper(object):
     def __init__(self, annoDB, seqRegionDB):
         self.annoDB = annoDB
@@ -165,7 +221,7 @@ class AssemblyMapper(object):
         'map to corresponding interval in the target coord system'
         srID = k.id #self.seqRegionInv[k]
         start,stop = k._abs_interval
-       # print ('select t1.* from %s t1, %s t2 where t1.cmp_seq_region_id=%%s and t1.asm_seq_region_id=t2.seq_region_id and t2.coord_system_id=%%s and cmp_start-1<=%%s and cmp_end>=%%s' %(self.assembly,self.srdb.seqRegionDB.name)%(srID,self.targetCoord,start,stop))
+        print ('select t1.* from %s t1, %s t2 where t1.cmp_seq_region_id=%%s and t1.asm_seq_region_id=t2.seq_region_id and t2.coord_system_id=%%s and cmp_start-1<=%%s and cmp_end>=%%s' %(self.assembly,self.srdb.seqRegionDB.name)%(srID,self.targetCoord,start,stop))
         n = self.cursor.execute(
             'select t1.* from %s t1, %s t2 where t1.cmp_seq_region_id=%%s and t1.asm_seq_region_id=t2.seq_region_id and t2.coord_system_id=%%s and cmp_start-1<=%%s and cmp_end>=%%s'
             %(self.assembly,self.srdb.seqRegionDB.name),
@@ -185,22 +241,96 @@ class AssemblyMapper(object):
 
 
 if __name__ == '__main__': # example code
-    import MySQLdb
-    conn = MySQLdb.connect(host='ensembldb.ensembl.org', user='anonymous')
-    cursor = conn.cursor()
+    #import MySQLdb
+    #conn = MySQLdb.connect(host='ensembldb.ensembl.org', user='anonymous')
+    #cursor = conn.cursor()
+    conn = sqlgraph.DBServerInfo(host='ensembldb.ensembl.org', user='anonymous')
+    
+    # test the TranscriptToExon mapper class
+    transcriptTB = sqlgraph.SQLTable('homo_sapiens_core_47_36i.transcript', itemClass=EnsemblRow, serverInfo=conn)
+    exonTB = sqlgraph.SQLTable ('homo_sapiens_core_47_36i.exon', itemClass=EnsemblRow, serverInfo=conn)
+    
+    transcriptToExons = TranscriptToExon(transcriptTB, exonTB)
+    transcript = transcriptTB[1]
+    exons = transcriptToExons[transcript]
+    print 'Transcript', transcript.id, 'has', len(exons), 'exons:'
+    print 'id', 'start'
+    for e in exons:
+        print e.id, e.start
+    exon = exonTB[1]
+    transcripts = (~transcriptToExons)[exon]
+    print 'Exon', exon.id, 'belongs to', len(transcripts), 'transcript:'
+    print 'id', 'start'
+    for t in transcripts:
+        print t.id, t.start
+    '''
+    # Save the mapping to pygr.Data
+    transcriptTB.__doc__ = 'ensembl transcriptTB (human, core, 47_36i)'
+    exonTB.__doc__ = 'ensembl exonTB (human, core, 47_36i)'
+    TranscriptToExon.__doc__ = 'ensembl mapper transcriptTB -> exonTB (human, core, 47_36i)'
+
+    pygr.Data.Bio.MySQL.EnsemblTB.HUMAN47_36i.transcriptTB = transcriptTB
+    pygr.Data.Bio.MySQL.EnsemblTB.HUMAN47_36i.exonTB = exonTB
+    pygr.Data.Bio.Mapping.EnsemblMapper.HUMAN47_36i.transcriptExons = transcriptToExons
+
+    # Create and save the transcript -> exons schema relation to pygr.Data
+    pygr.Data.schema.Bio.Mapping.EnsemblMapper.HUMAN47_36i.transcriptExons = pygr.Data.ManyToManyRelation(transcriptTB,exonTB,bindAttrs=('exons','transcripts'))
+    pygr.Data.save() # SAVE ALL PENDING DATA AND SCHEMA TO RESOURCE DATABASE
+
+    
+    example client code:
+    geneToExons = pygr.Data.Bio.Mapping.EnsemblMapper.HUMAN47_36i.transcriptExons()
+    # Get the set of exons for this transcript
+    # Note: Since we bound an exons attribute to each item of genes, we can get the set of exons for a given transcript as easily as transcript.exons.
+    for exon in transcript.exons:
+        print exon.id, exon.phase
+
+    # Get the set of transcripts for this exon
+    mytranscripts = exon.transcripts # Likewise, this is equivalent to mytranscripts = (~transcriptToExons)[exon]
+    
+    
     seq_region = sqlgraph.SQLTable('homo_sapiens_core_47_36i.seq_region',
-                                   cursor) 
-    dna = sqlgraph.SQLTable('homo_sapiens_core_47_36i.dna', cursor, 
+                                   serverInfo=conn)
+    dna = sqlgraph.SQLTable('homo_sapiens_core_47_36i.dna', serverInfo=conn, 
                             itemClass=EnsemblDNA,
                             itemSliceClass=seqdb.SeqDBSlice,
                             attrAlias=dict(seq='sequence'))
     import pygr.Data
     hg18 = pygr.Data.Bio.Seq.Genome.HUMAN.hg18() # human genome
+    seq_region.__doc__ = 'ensembl_seq_region(human, core, 47_36i)'
+    pygr.Data.Bio.MySQL.Ensembl.HUMAN.seq_region47_36i = seq_region
+    #dna.__doc__ = 'ensembl_dna(human, core, 47_36i)'
+    #pygr.Data.Bio.MySQL.Ensembl.HUMAN.dna47_36i = dna
+    
+    pygr.Data.save()
+    
     srdb = SeqRegion(seq_region, {17:hg18, 4:dna}, {17:'chr',4:None})
     chr1 = srdb[226034]
     print len(chr1) # 247249719
-    exonSliceDB = sqlgraph.SQLTable('homo_sapiens_core_47_36i.exon',
-                                    cursor, itemClass=EnsemblRow)
+    #chr18 = srdb[226035]
+    #print len(chr18) # 76117153 
+    #exonSliceDB = sqlgraph.SQLTable('homo_sapiens_core_47_36i.exon',
+     #                               serverInfo=conn, itemClass=EnsemblRow)
+    #exonSliceDB.__doc__ = 'ensembl_exon(human, core, 47_36i)'
+    #pygr.Data.Bio.MySQL.Ensembl.HUMAN.exonSliceDB47_36i = exonSliceDB
+    #pygr.Data.save()
+    ##e = exonSliceDB[73777]
+    ##print e.start # 444865
+    #ptSliceDB = sqlgraph.SQLTable('homo_sapiens_core_47_36i.prediction_transcript', cursor, itemClass = EnsemblRow)
+    #ptSliceDB.__doc__ = 'Ensembl_prediction_transcripts'
+    #res = SQLTableMinimal(ptSliceDB.name,ptSliceDB.data,ptSliceDB.description,ptSliceDB.primary_key)
+    #res.__doc__ = 'Ensembl_prediction_transcripts'
+    #print "add resource " + str(res)
+    #from StringIO import StringIO
+    #import pickle,sys
+    #src=StringIO()
+    #pickler = pickle.Pickler(src)
+    #pickler.root=res
+    #pickler.sourceIDs={}
+    #pickler.dump(res)
+    #pygr.Data.Bio.EnsemblPredictionTranscripts = res
+    #pygr.Data.save()
+    
     #geneSliceDB = sqlgraph.SQLTable('homo_sapiens_core_47_36i.gene',
     #                                cursor, itemClass=EnsemblRow)
     #e = exonSliceDB[73777]
@@ -209,39 +339,119 @@ if __name__ == '__main__': # example code
     annoDB = AnnotationDB(exonSliceDB, srdb, sliceAttrDict=
                           dict(id='seq_region_id',stop='seq_region_end',
                                orientation='seq_region_strand'))
+    #annoDB = AnnotationDB(ptSliceDB, srdb, sliceAttrDict=
+    #                      dict(id='seq_region_id',stop='seq_region_end',
+    #                           orientation='seq_region_strand'))
+    #annoDB.__doc__ = 'ensembl prediction_transcripts annotation'
+    #pygr.Data.Bio.annotations = annoDB
+    
+    #pygr.Data.save()
+    # test
+    #for a in annoDB.itervalues():
+    #    print 'db, id:', a.db, a.id
+    
     #annoDB = AnnotationDB(geneSliceDB, srdb, sliceAttrDict=
     #                      dict(id='seq_region_id',stop='seq_region_end',
     #                           orientation='seq_region_strand'))
     e = annoDB[73777]
     print e.orientation, e.phase, e.end_phase # 1(always 1!) 1 0
+    #pt = annoDB[36948]
+    #pt_slice = pt.sequence[:100]
+    
+    print 'length of pt_slice:', len(pt_slice)
+    print 'pt sequence first 100bp:', str(pt_slice)
+    print 'length:', len(pt) # 17784
+    print 'db, id, annotationType:', pt.db, pt.id, pt.annotationType
+    print 'seq_region_id (wrong):', pt.id
+    print 'sequence id:', pt.sequence.id
+    print 'sequence stop:', pt.sequence.stop
+    print 'sequence start:', pt.sequence.start
+    print 'sequence orientation:', pt.sequence.orientation
+    print 'seq_region_id (right):', pt.seq_region_id
+    print 'prediction_transcript_id:', pt.prediction_transcript_id
+    print 'stop (wrong):', pt.stop # 17784
+    print 'stop (right):', pt.seq_region_end
+    print 'start:', pt.start
+    print 'orientation:', pt.orientation
+    #print pt.orientation, pt.start, pt.seq_region_start, pt.stop, pt.id, pt.prediction_transcript_id, pt.display_label, pt.seq_region_id
+    #s = pt.sequence
+    
     s = e.sequence
     #g = annoDB[1]
     #print g.orientation, g.is_current, g.analysis_id
     #s = g.sequence
-    print len(s)
+    #print len(s)
     print str(s) #'GCAAGCTGTGGACAAGAAGTATGAAGGTCGCTTACAGCATTCTACACAAATTAGGCACAAAGCAGGAACCCATGGTCCGGCCTGGAGATAGG'
-    #print str(s.before()[-10:]) # 'GTATTCATAG' last 2 nt is splice-site
-    #print str(s.after()[:10]) # 'GTAAGTGCAA' first 2 nt is splice-site
+    print str(s.before()[-10:]) # 'GTATTCATAG' last 2 nt is splice-site
+    print str(s.after()[:10]) # 'GTAAGTGCAA' first 2 nt is splice-site
     mapper = EnsemblMapper(annoDB, srdb) # find exons for any sequence slice
+    #mapper.__doc__ = "mapping of an EnsemblPredictionTranscript to a contig sequence interval in human genome 18" 
+    #pygr.Data.getResource.addResource('Bio.Ensembl.mapper', mapper)
+    #pygr.Data.here.Bio.mapper = mapper
+    #import os
+    #os.environ['PYGRDATAPATH'] = '.'
+    #pygr.Data.here.getResource.addResource('Bio.Ensembl.mapper', mapper)
+    #pygr.Data.here.addResource('Bio.Ensembl.mapper', mapper)
+    
+    #need to save the annoDB and srdb
+    #annoDB.__doc__ = "annotation db for ensembl prediction_transcripts"
+    #srdb.__doc__ = "seq_region db for ensembl contig and hg18 sequences"
+    #pygr.Data.here.Bio.annoDB = annoDB
+    #pygr.Data.Bio.annoDB = annoDB
+    #pygr.Data.here.srdb = srdb
+    #pygr.Data.here.Bio.srdb = srdb
+    #pygr.Data.here.mapper = mapper
+    #pygr.Data.here.Bio.mapper = mapper
+    #pygr.Data.here.schema.mapper = pygr.Data.OneToManyRelation(srdb, annoDB, bindAttrs=('prediction_transcripts', 'genomic_region'))
+    #pygr.Data.save()
+    
+    
+    pygr.Data.here.annoDB = annoDB
+    pygr.Data.here.srdb = srdb
+    pygr.Data.here.mapper = mapper
+    pygr.Data.here.schema.mapper = pygr.Data.OneToMany(srdb, annoDB, bindAttrs=('prediction_transcripts', 'genomic_region')
+    pygr.Data.save()
+    
+    #pygr.Data.save(layer='here')
+    #pygr.Data.here.save()
+    
+    #ival = chr18[31140100-31141800]
+    ival = chr18[31129340:31190706]
+
+    amap = AssemblyMapper(srdb, 4, 17) # test the assembly mapper
+    cival = (~amap)[ival] # map back to contig interval
+    contig = srdb[149878][pt.sequence.start:pt.sequence.stop]
+    annot36948 = amap[contig]
+    annot36948_2 = amap[pt.sequence]
+    print 'genomic level interval for annot36948:', repr(annot36948)
+    print 'genomic level interval for annot36948_2:', repr(annot36948_2)
+    print 'contig level interval for annot36948:', repr(pt.sequence)
+    print 'genomic level interval:', repr(ival)
+    print 'contig level interval:', repr(cival)
+    #print repr(ival), repr(cival)
+    
     ival = chr1[:100000]
     #ival = chr1[247197525:247197890]
     #ival = chr1[4273:19669]
     print mapper[ival] # find exons in this interval
+    #print mapper[cival] # find prediction_transcripts in this interval
+    #for a in mapper[cival]:
+    #    print 'length:', len(a)
     #gene_list = mapper[ival]
     #print gene_list[0].orientation
     #s = gene_list[0].sequence
     #print str(s)
     #print len(s)
     print 'neg:', mapper[-ival] # forces annotations to opposite ori...
+    #print 'neg:', mapper[-cival] # forces annotations to opposite ori...
     #gene_list_neg = mapper[-ival]
     #print gene_list_neg[0].orientation
     #s_neg = gene_list_neg[0].sequence
     #print str(s_neg)
     #print len(s_neg)
-    '''
     s = dna[143909] # get this sequence object
     print len(s) # 41877
-    print str(s[:10]) # CACCCTGCCC
+    #print str(s[:10]) # CACCCTGCCC
     amap = AssemblyMapper(srdb, 4, 17) # test the assembly mapper
     contig = srdb[149878] # get a contig
     c = contig[:10] # a short slice of its beginning
@@ -250,10 +460,9 @@ if __name__ == '__main__': # example code
     print str(u) # 'accccttacc'
     print c.orientation # 1
     print u.orientation # -1
-    ival = chr1[1000000:1000010] # get an hg18 interval
+    ival = chr1[1000000:1000010] # get a hg18 interval
     c = (~amap)[ival] # map back to contig interval
     print repr(ival), repr(c) # chr1[1000000:1000010] 158512[13848:13858]
     print str(ival), str(c) # ACGTGGCTGC ACGTGGCTGC
-    '''
     #conn.close()
-
+    '''    
