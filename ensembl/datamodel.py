@@ -11,6 +11,8 @@ def _getDriver():
     from ensembl.adaptor import getDriver
     return getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
 
+mapperResourceID = 'Bio.Mapping.EnsemblMapper'
+
 
 class BaseModel(sqlgraph.TupleO):
     '''A generic interface to an item object in a table in the ensembl database
@@ -329,7 +331,7 @@ class Sliceable(BaseModel):
 
     
 
-class Exon(Sliceable):
+class Exon(BaseModel, EnsemblRow):
     '''An interface to an exon record in the exon table in an ensembl core 
     database
 
@@ -345,52 +347,36 @@ class Exon(Sliceable):
     <BLANKLINE>
     getVersion(stableID_tb_name): 1
     '''
-
-    def __init__(self, rowobj):
-        Sliceable.__init__(self, rowobj)
-    
-    def getPhase(self):
-        return self.rowobj.phase
-    
-    def getEndPhase(self):
-        return self.rowobj.end_phase
-
-    def getAnalysisID(self):
-        return 'None'
-
-    def getXrefID(self):
-        return 'None'
-
-    def getBiotype(self):
-        return 'None'
-
-    def getStatus(self):
-        return 'None'
-
-    def getDescription(self):
-        return 'None'
-
-    def isKnown(self):
-        return 'Undefined'
-
     #def getGene(self):
 
     #def getTranscripts(self):
 
 
-class Transcript(Sliceable):
+class Transcript(BaseModel, EnsemblRow):
     '''An interface to a transcript record in the transcript table in an ensembl core database'''
 
-    def __init__(self, rowobj):
-        Sliceable.__init__(self, rowobj)
-
-    def getGeneID(self):
-        return self.rowobj.gene_id
-
-    def getExons(self):
+    def get_all_exons(self):
         'obtain all the exons of this transcript'
 
-        transcript_id = self.rowobj.id
+        # Get the transcriptExons mapper from pygr.Data
+        resource_id = mapperResourceID + '.transcriptExons'
+        #print self.resource_id
+        transcriptExons = adaptor._get_resource(resource_id)
+        if transcriptExons == None:
+            # Create a pygr.Data transcriptExons mapper
+            
+            transcriptExons = adaptor._create_pygrDataMapper(sourceTBName, targetTBName)
+            adaptorClass = CoreDBAdaptor.TBAdaptorClass[tbname]
+            rowClass = CoreDBAdaptor.RowClass[tbname]
+            #self.tbobj = sqlgraph.SQLTable(self.db+'.'+self.tb, serverInfo=conn)
+            #self.tbobj = sqlgraph.SQLTable(self.db+'.'+self.tb, serverInfo=conn,itemClass=self.row)
+            tbAdaptor = adaptorClass(dbname, itemClass=rowClass, serverInfo=self.conn)
+           
+            # Save self.tbobj to pygr.Data
+            #_save_resource(resource_id, tbAdaptor)
+        #self.cursor = self.tbobj.cursor
+        return tbAdaptor
+        #return adaptor_name(self.db_species + '_' + self.db_type + '_' + self.db_version, self.conn)transcript_id = self.rowobj.id
         driver = self.driver
         exon_adaptor = driver.get_Adaptor('exon')
         exons = exon_adaptor.fetch_exons_by_transcriptID(transcript_id)

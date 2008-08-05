@@ -1,4 +1,5 @@
 from ensembl.seqregion import *
+from ensembl.featuremapping import *
 from ensembl.datamodel import *
 import MySQLdb
 
@@ -36,7 +37,7 @@ class TranslationAdaptor(sqlgraph.SQLTable):
 
 
 def get_registry(**kwargs):
-    '''Provides a method to generate a connection to the ensembl server
+    '''Provides a method to generate a connection to the MySQL server
 
     >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
     >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
@@ -58,6 +59,8 @@ def get_registry(**kwargs):
         Registry._instance = Registry(**kwargs)
     return Registry._instance
 
+tableResouceID = 'Bio.MySQL.Ensembl'
+
 def _get_resource(resource_id):
     '''Obtain the required ensembl table from pygr.Data, return None if unable to find it in PYGRDATAPATH'''
 
@@ -66,6 +69,18 @@ def _get_resource(resource_id):
         return pygr.Data.getResource(resource_id)
     except pygr.Data.PygrDataNotFoundError:
         return None
+
+def _get_DB_adaptor(dbSpecies, dbType, dbVersion):
+    
+    serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+    myDBAdaptor = serverRegistry.get_DBAdaptor(dbSpecies, dbType, dbVersion)
+    return myDBAdaptor
+
+def _get_table_adaptor(dbSpecies, dbType, dbVersion, tbName):
+
+    myDBAdaptor = _get_DB_adaptor(dbSpecies, dbType, dbVersion) 
+    myAdaptor = myDBAdaptor.get_adaptor(tbName)
+    return myAdaptor
 
 def _save_resource(resource_id, tbobj):
     'Save the ensembl database table to pygr.Data'
@@ -78,6 +93,28 @@ def _save_resource(resource_id, tbobj):
     pygr.Data.save()
 
 
+
+def _create_mapper_resource(dbSpecies, dbType, dbVersion, sourceTBName, targetTBName):
+    dbName = dbSpecies + '_' + dbType + '_' + dbVersion
+    sourceResID = tableResourceID + '.' + dbName + '.' + sourceTBName
+    print 'sourceResID: ', sourceResID
+    targetResID = tableResourceID + '.' + dbName + '.' + targetTBName
+    print 'targetResID: ', targetResID
+    sourceTB = _get_resource(sourceResID)
+    if sourceTB == None:
+        sourceTB = _get_table_adaptor(sourceTBName)
+        _save_resource(sourceResID, sourceTB)
+    targetTB = _get_resource(targetResID)
+    if targetTB == None:
+        targetTB = _get_table_adaptor(targetTBName)
+        _save_resource(targetResID, targetTB)
+    mapperName = sourceTBName + 'to' + targetTBName
+    myDBAdaptor = _get_DB_adaptor(dbSpecies, dbType, dbVersion)
+    mapperClass = myDBAdaptor.MapperClass[mapperName] 
+    myMapper = mapperClass(sourceTB, targetTB)
+    return myMapper
+
+    
 class Registry(object):
     'Provide a connection to the ensembl server'
 
@@ -452,8 +489,8 @@ class CoreDBAdaptor(object):
     # static attributes
     dbType = 'core'
     TBAdaptorClass = {'exon': ExonAdaptor, 'gene': GeneAdaptor, 'transcript': TranscriptAdaptor, 'seq_region': SeqregionAdaptor, 'translation': TranslationAdaptor, 'gene_stable_id': GeneStableIdAdaptor, 'transcript_stable_id': TranscriptStableIdAdaptor, 'translation_stable_id': TranslationStableIdAdaptor, 'exon_stable_id': ExonStableIdAdaptor, 'xref': XrefAdaptor, 'prediction_transcript': PredictionTranscriptAdaptor, 'meta_coord': MetaCoordAdaptor, 'prediction_exon': PredictionExonAdaptor, 'peptide_archive': PeptideArchiveAdaptor}
-    #TBAdaptorClass = {'translation': TranslationAdaptor}
     RowClass = {'exon': Exon, 'gene': Gene, 'transcript': Transcript, 'seq_region': Seqregion, 'translation': Translation, 'gene_stable_id': GeneStableID, 'transcript_stable_id': TranscriptStableID, 'translation_stable_id': TranslationStableID, 'exon_stable_id': ExonStableID, 'xref': Xref, 'prediction_transcript': PredictionTranscript, 'prediction_exon': PredictionExon, 'peptide_archive': PeptideArchive}
+    MapperClass = {'transcripttoexon': TranscriptToExon}
     def __init__(self, registry, dbSpecies, dbVersion):
         
         # instance attributes
@@ -635,11 +672,25 @@ def _test():
     
 if __name__ == '__main__': # example code
     
-    _test()
-    '''
+    #_test()
+    
     serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
     coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
-    '''
+    transcriptAdaptor = coreDBAdaptor.get_adaptor('transcript')
+    exonAdaptor = coreDBAdaptor.get_adaptor('exon')
+    transcriptToExons = TranscriptToExon(transcriptAdaptor, exonAdaptor)
+    transcript = transcriptAdaptor[1]
+    exons = transcriptToExons[transcript]
+    print 'Transcript', transcript.id, 'has', len(exons), 'exons:'
+    print 'id', 'start'
+    for e in exons:
+        print e.id, e.start
+    exon = exonAdaptor[1]
+    transcripts = (~transcriptToExons)[exon]
+    print 'Exon', exon.id, 'belongs to', len(transcripts), 'transcript:'
+    print 'id', 'start'
+    for t in transcripts:
+        print t.id, t.start
     '''
     translationAdaptor = coreDBAdaptor.get_adaptor('translation')
     translation = translationAdaptor[10]
