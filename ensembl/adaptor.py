@@ -62,7 +62,7 @@ def get_registry(**kwargs):
 tableResouceID = 'Bio.MySQL.Ensembl'
 
 def _get_resource(resource_id):
-    '''Obtain the required ensembl table from pygr.Data, return None if unable to find it in PYGRDATAPATH'''
+    '''Obtain the required ensembl table adaptor from pygr.Data, return None if unable to find it in PYGRDATAPATH'''
 
     import pygr.Data
     try:
@@ -83,11 +83,11 @@ def _get_table_adaptor(dbSpecies, dbType, dbVersion, tbName):
     return myAdaptor
 
 def _save_resource(resource_id, tbobj):
-    'Save the ensembl database table to pygr.Data'
+    'Save the ensembl database table adaptor to pygr.Data'
 
     import pygr.Data
     tbobj.__doc__ = 'ensembl ' + resource_id.split('.')[3] + ' ' + resource_id.split('.')[4] + ' table'
-    print tbobj.__doc__
+    print 'saving', tbobj.__doc__, '...'
     pygr.Data.addResource(resource_id, tbobj)
     # Save all pending data and schema to resource database
     pygr.Data.save()
@@ -510,15 +510,11 @@ class CoreDBAdaptor(object):
             # Create a pickleable SQLTable adaptor
             adaptorClass = CoreDBAdaptor.TBAdaptorClass[tbname]
             rowClass = CoreDBAdaptor.RowClass[tbname]
-            #self.tbobj = sqlgraph.SQLTable(self.db+'.'+self.tb, serverInfo=conn)
-            #self.tbobj = sqlgraph.SQLTable(self.db+'.'+self.tb, serverInfo=conn,itemClass=self.row)
             tbAdaptor = adaptorClass(dbname, itemClass=rowClass, serverInfo=self.conn)
            
             # Save self.tbobj to pygr.Data
-            #_save_resource(resource_id, tbAdaptor)
-        #self.cursor = self.tbobj.cursor
+            _save_resource(resource_id, tbAdaptor)
         return tbAdaptor
-        #return adaptor_name(self.db_species + '_' + self.db_type + '_' + self.db_version, self.conn)
 
     def fetch_sequence_by_region(self, chromosome, start, end, strand):
         '''Obtain the DNA sequence of a particular genomic region (defined by
