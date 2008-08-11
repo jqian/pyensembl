@@ -2,39 +2,33 @@ from ensembl.adaptor import *
 from ensembl.seqregion import *
 from seqregion import EnsemblRow
 
-def _getDriver():
-    '''Obtain an ensembl database connection.  
-    Thus, in order to connect to a different database, this is the only place needs to be modified!'
-    '''
-    
-    # Weird...but Python somehow "forgot" the definition and location of getDriver
-    from ensembl.adaptor import getDriver
-    return getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
-
-mapperResourceID = 'Bio.Mapping.EnsemblMapper'
-
 
 class BaseModel(sqlgraph.TupleO):
     '''A generic interface to an item object in a table in the ensembl database
     '''
     
-        
+    '''    
     def getAttributes(self):
         'print out this row record'
 	#for k, v in self.rowobj._attrcol.iteritems():
         #    print k, ' = ', self.rowobj.data[v]
         for k, v in self._attrcol.iteritems():
 	    print k, ' = ', self.data[v]
+    '''
 
+    # test
+    def getDBName(self):
+        return self.db.name
+
+class Dna(EnsemblDNA):
+    '''An interface to a row in the dna table'''
 
 
 class Xref(BaseModel):
     '''An interface to a record in the xref table in any ensembl core database'''
 
     
-    #def get_display_label(self):
-    #    return self.rowobj.display_label
-
+    
 
 
 class Translation(BaseModel):
@@ -48,111 +42,94 @@ class Translation(BaseModel):
         exon_adaptor = driver.getAdaptor('exon')
         exons = exon_adaptor.fetch_exons_by_translation(transcript_id, start_exon_id, end_exon_id)
         return exons
-    '''
-    def getCreatedDate(self):
-        'Get ensembl created date for this translation'
-
-        translation_stableID_adaptor = self.driver.getAdaptor('translation_stable_id')
-        created_date = translation_stableID_adaptor[self.translation_id].rowobj.
-    '''
-
-class StableID(BaseModel):
-    '''An interface to a generic stable_id record in a generic stable_id table in any ensembl core database'''
+    
 
 
-    #def getStableID(self):
-    #    return self.rowobj.stable_id
-
-    #def getVersion(self):
-    #    return self.rowobj.version
-
-    #def get_created_date(self):
-    #    return self.rowobj.created_date
-
-    #def get_modified_date(self):
-    #    return self.rowobj.modified_date
-
-
-class GeneStableID(StableID):
+class GeneStableID(BaseModel):
     '''An interface to a record in the gene_stable_id table in any ensembl core database'''
 
 
-class TranscriptStableID(StableID):
+class TranscriptStableID(BaseModel):
     '''An interface to a record in the transcript_stable_id table in any ensembl core database'''
 
-class ExonStableID(StableID):
+class ExonStableID(BaseModel):
     '''An interface to a record in the exon_stable_id table in any ensembl core database'''
 
-class TranslationStableID(StableID):
+class TranslationStableID(BaseModel):
     '''An interface to a record in the translation_stable_id table in any ensembl core database'''
 
 class PeptideArchive(BaseModel):
     '''
     An interface to a row record in the peptide_archive table
-    >>> driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
-    >>> peptide_archive_adaptor = driver.get_Adaptor('peptide_archive')
-    >>> peptide_archive = peptide_archive_adaptor.get_by_dbID(100)
-    >>> peptide_archive.getAttributes()
-    peptide_seq  =  MKKARNDEYENLFNMIVEIPRWTNAKMEIATKEPMNPIKQYVKDGKLRYVANIFPYKGYIWNYGTLPQTWEDPHEKDKSTNCFGDNDPIDVCEIGSKILSCGEVIHVKILGILALIDEGETDWKLIAINANDPEASKFHDIDDVKKFKPGYLEATLNWFRLYKVPDGKPENQFAFNGEFKNKAFALEVIKSTHQCWKALLMKKCNGGAINCTNVQISDSPFRCTQEEARSLVESVSSSPNKESNEEEQVWHFLGK
-    peptide_archive_id  =  100
-    id  =  100
-    md5_checksum  =  A9E4359D28F51F9FF317B378C168BF8D
-    '''
-
-
-"""
-class GeneArchive(BaseModel):
-    '''
-    An interface to a row record in the gene_archive table
-
     
+    >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+    >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
+    >>> pepAdaptor = coreDBAdaptor.get_adaptor('peptide_archive')
+    >>> peptide = pepAdaptor[100]
+    >>> print peptide.peptide_seq
+    MKKARNDEYENLFNMIVEIPRWTNAKMEIATKEPMNPIKQYVKDGKLRYVANIFPYKGYIWNYGTLPQTWEDPHEKDKSTNCFGDNDPIDVCEIGSKILSCGEVIHVKILGILALIDEGETDWKLIAINANDPEASKFHDIDDVKKFKPGYLEATLNWFRLYKVPDGKPENQFAFNGEFKNKAFALEVIKSTHQCWKALLMKKCNGGAINCTNVQISDSPFRCTQEEARSLVESVSSSPNKESNEEEQVWHFLGK
+
     '''
 
-    def __init__(self, rowobj):
-        BaseModel.__init__(self, rowobj)
-"""
 
-class PredictionExon(BaseModel):
+
+
+class PredictionExon(BaseModel, EnsemblRow):
     '''
     An interface to a row record in the prediction_exon table
 
-    >>> driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
-    >>> predic_exon_adaptor = driver.get_Adaptor('prediction_exon')
-    >>> predic_exon = predic_exon_adaptor.get_by_dbID(10)
-    >>> predic_exon.getAttributes()
-    prediction_exon_id  =  10
-    p_value  =  0.039
-    seq_region_id  =  149762
-    seq_region_end  =  31625
-    exon_rank  =  3
-    start_phase  =  0
-    seq_region_start  =  31474
-    score  =  3.84
-    prediction_transcript_id  =  3
-    id  =  10
-    seq_region_strand  =  1
+    >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+    >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
+    >>> pexonAdaptor = coreDBAdaptor.get_adaptor('prediction_exon')
+    >>> pExon = pexonAdaptor[10]
+    >>> print pExon.start
+    31473
+    >>> print pExon.seq_region_start
+    31474
+    >>> print pExon.prediction_transcript_id
+    3
+    >>> ptranscript = pExon.get_prediction_transcript()
+    >>> print ptranscript.id
+    3
+
     '''
+
+    def get_prediction_transcript(self):
+        'Obtain the prediction transcript the given prediction exon belongs to'
+        
+        ptranscriptPExons = _get_featureMapper('prediction_transcript', 'prediction_exon', self.db.name)
+        ptranscript = (~ptranscriptPExons)[self]
+        return ptranscript
+
+    
    
 class PredictionTranscript(BaseModel, EnsemblRow):
     '''
     An interface to a prediction_transcript record in any ensembl core database
     
-    >>> driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
-    >>> predic_transcript_adaptor = driver.get_Adaptor('prediction_transcript')
-    >>> predic_transcript = predic_transcript_adaptor.get_by_dbID(150)
-    >>> predic_exons = predic_transcript.get_all_Exons()
-    >>> for predic_exon in predic_exons:
-    ...     print predic_exon.rowobj.prediction_exon_id
+    >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+    >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
+    >>> ptranscriptAdaptor = coreDBAdaptor.get_adaptor('prediction_transcript')
+    >>> ptranscript = ptranscriptAdaptor[150]
+    >>> print ptranscript.start
+    18007
+    >>> print ptranscript.seq_region_start
+    18008
+    >>> pexons = ptranscript.get_prediction_exons()
+    >>> for pe in pexons:
+    ...     print pe.id
     ...
     822
     823
     824
     '''
 
-    def get_all_Exons(self):
-        predic_exon_adaptor = self.driver.get_Adaptor('prediction_exon')
-        predic_exons = predic_exon_adaptor.get_all_by_ptranscriptID(self.rowobj.prediction_transcript_id)
-        return predic_exons
+    def get_prediction_exons(self):
+        'Obtain all the prediction exons for this prediction transcript'
+
+        ptranscriptPExons = _get_featureMapper('prediction_transcript', 'prediction_exon', self.db.name)
+        pexons = ptranscriptPExons[self]
+        return pexons
 
 
 class Seqregion(BaseModel):
@@ -160,37 +137,9 @@ class Seqregion(BaseModel):
     ensembl core database'''
 
 
-    #def getCoordinateSystem(self):
-    #    return self.rowobj.coord_system_id
-
-    #def getName(self):
-    #    return self.rowobj.name
-
-    #def getLength(self):
-    #    return self.rowobj.length
-
 
 class Sliceable(BaseModel):
     '''An interface to a generic record in a table that has a seq_region assigneto it based on the ensembl coordinate system (seq_region_id, seq_region_start, seq_region_end and seq_region_strand)'''
-
-    def __init__(self, rowobj):
-        BaseModel.__init__(self, rowobj)
-
-    def getSeqregionID(self):
-        return self.rowobj.seq_region_id
-
-    def getSeqregionStart(self):
-        return self.rowobj.seq_region_start
-
-    def getSeqregionEnd(self):
-        return self.rowobj.seq_region_end
-
-    def getOrientation(self):
-        return self.rowobj.seq_region_strand
-
-    def is_current(self):
-        return self.rowobj.is_current
-    
 
     def _getSeqregionDB(self):      
         'a private helper method to create a seq_region database object'
@@ -243,143 +192,161 @@ class Sliceable(BaseModel):
         unitobj = annoDB[unitID]
         s = unitobj.sequence
         return s
-    '''    
-    def getExons(self):
-        'Find exons of a gene or a transcript object.'
- 
-        # obtain a seq_region database object
-        srdb =self._getSeqregionDB()
-        # obtain an annotation database object
-        annoDB = self._getAnnotationDB('exon')
-        # find exons for any sequence slice
-        mapper = EnsemblMapper(annoDB, srdb)
-        # Obtain a sequence interval object based on the seq_region defined for a gene or a transcript record.  The seq_region interval is described by seq_region_id, seq_region_start, seq_region_end and seq_region_strand.
-        ival = self._getSeqregionSeq()
-        # find exons in this sequence interval
-        exon_list = mapper[ival] 
-
-        print 'exons in interval', self.rowobj.seq_region_start, '-', self.rowobj.seq_region_end, 'on both strands:'
-        if len(exon_list) == 0:
-            print 'None'
-        else:
-            # print out all the exons in this interval on both strands
-            print exon_list
-            exons = []  
-            for annobj in exon_list:
-                # return only exons on the same strand as the gene or transcript
-                if annobj.orientation == 1:
-                    e = Exon(annobj.id)
-                    exons.append(e)
-        return exons
-    '''    
-    def getAnalysisID(self):
-        return self.rowobj.analysis_id
-        
-    def getBiotype(self):
-        return self.rowobj.biotype
-
-    def getStatus(self):
-        return self.rowobj.status
-
-    def getDescription(self):
-        return self.rowobj.description
-
-    def getXrefID(self):
-        return self.rowobj.display_xref_id
-
-    def isKnown(self):
-        if self.rowobj.status == 'KNOWN':
-            return True
-        else:
-            return False
-
-    def get_stable_id(self, stableID_tb_name):
-        '''Return the stable_id of this Sliceable, none if it doesn't have one'''
-
-        stableID_adaptor = self.driver.get_Adaptor(stableID_tb_name)
-        sliceable_id = self.rowobj.id
-        stableID_record = stableID_adaptor[sliceable_id]
-        stable_id = stableID_record.stable_id
-        return stable_id
-
-    def get_created_date(self, stableID_tb_name):
-        'Obtain the ensembl created date for the Sliceable if it has a stable id'
-        stableID_adaptor = self.driver.get_Adaptor(stableID_tb_name)
-        sliceable_id = self.rowobj.id
-        stableID_record = stableID_adaptor[sliceable_id]
-        created_date = stableID_record.created_date
-        return created_date
     
-    def get_modified_date(self, stableID_tb_name):
-        'Obtain the ensembl modified date for the Sliceable if it has a stable id'
-        stableID_adaptor = self.driver.get_Adaptor(stableID_tb_name)
-        sliceable_id = self.rowobj.id
-        stableID_record = stableID_adaptor[sliceable_id]
-        modified_date = stableID_record.modified_date
-        return modified_date
+    def _get_stable_id_obj(self):
+        'Get a rowobj from a particular stable_id table'
 
-    def getVersion(self, stableID_tb_name):
+        # get the database adaptor 
+        name = self.db.name
+        dbName = name.split('.')[0]
+        dbSpecies = dbName.split('_')[0] + '_' + dbName.split('_')[1]
+        dbType = dbName.split('_')[2]
+        dbVersion = dbName.split('_')[3] + '_' + dbName.split('_')[4]
+        from ensembl.adaptor import _get_DB_adaptor
+        dbAdaptor = _get_DB_adaptor(dbSpecies, dbType, dbVersion)
+        
+        # get the particular stable_id table adaptor
+        tbName = name.split('.')[1]
+        stableIDtbName = tbName + '_' + 'stable_id'
+        stableIDAdaptor = dbAdaptor.get_adaptor(stableIDtbName)
+        sliceableID = self.id
+        stableIDObj = stableIDAdaptor[sliceableID]
+        return stableIDObj 
+        
+    def get_stable_id(self):
+        '''Return the stable_id of this Sliceable, none if it doesn't have one'''
+        stableIDObj = self._get_stable_id_obj()
+        if stableIDObj == None:
+            return None
+        else:
+            stableID = stableIDObj.stable_id
+            return stableID
+
+    def get_created_date(self):
+        'Obtain the ensembl created date for the Sliceable if it has a stable id'
+        stableIDObj = self._get_stable_id_obj()
+        if stableIDObj == None:
+            return None
+        else:
+            createdDate = stableIDObj.created_date
+            return createdDate
+    
+    def get_modified_date(self):
+        'Obtain the ensembl modified date for the Sliceable if it has a stable id'
+        
+        stableIDObj = self._get_stable_id_obj()
+        if stableIDObj == None:
+            return None
+        else:
+            modifiedDate = stableIDObj.modified_date
+            return modifiedDate
+
+    def get_version(self):
         'Obtain the ensembl version for the Sliceable if it has a stable id'
         
-        stableID_adaptor = self.driver.get_Adaptor(stableID_tb_name)
-        sliceable_id = self.rowobj.id
-        stableID_record = stableID_adaptor[sliceable_id]
-        version = stableID_record.version
-        return version
+        stableIDObj = self._get_stable_id_obj()
+        if stableIDObj == None:
+            return None
+        else:
+            version = stableIDObj.version
+            return version
 
         
 
     
 
-class Exon(BaseModel, EnsemblRow):
+class Exon(Sliceable, EnsemblRow):
     '''An interface to an exon record in the exon table in an ensembl core 
     database
 
-    >>> driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
-    >>> exon = driver.get_Adaptor('exon').get_by_dbID(95160)
-    >>> _sliceable_stableID_tester(exon, 'exon_stable_id')
-    <BLANKLINE>
-    get_stable_id(stableID_tb_name): ENSE00001493538
-    <BLANKLINE>
-    get_created_date(stableID_tb_name): 2006-03-10 00:00:00
-    <BLANKLINE>
-    get_modified_date(stableID_tb_name): 2006-03-10 00:00:00
-    <BLANKLINE>
-    getVersion(stableID_tb_name): 1
+
+    >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+    >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
+    >>> exonAdaptor = coreDBAdaptor.get_adaptor('exon')
+    >>> exon = exonAdaptor[95160]
+    >>> print exon.get_stable_id()
+    ENSE00001493538
+    >>> print exon.get_created_date()
+    2006-03-10 00:00:00
+    >>> print exon.get_modified_date()
+    2006-03-10 00:00:00
+    >>> print exon.get_version()
+    1
+    >>> transcripts = exon.get_all_transcripts()
+    >>> for t in transcripts:
+    ...     print t.id, '       ', t.get_stable_id()
+    ...
+    15960         ENST00000382841
     '''
     #def getGene(self):
 
-    #def getTranscripts(self):
 
+    def get_all_transcripts(self):
+        'Obtain all the transcripts this exon belongs to'
 
-class Transcript(BaseModel, EnsemblRow):
-    '''An interface to a transcript record in the transcript table in an ensembl core database'''
+        
+        transcriptExons = _get_featureMapper('transcript', 'exon', self.db.name)
+        transcripts = (~transcriptExons)[self]
+
+        return transcripts
+
+    
+    # test
+    def get_start(self):
+        return self.start
+
+def _get_featureMapper(sourceDBName, targetDBName, name):
+    
+    dbName = name.split('.')[0]
+    dbSpecies = dbName.split('_')[0] + '_' + dbName.split('_')[1]
+    dbType = dbName.split('_')[2]
+    dbVersion = dbName.split('_')[3] + '_' + dbName.split('_')[4]
+    from ensembl.adaptor import _get_DB_adaptor
+    dbAdaptor = _get_DB_adaptor(dbSpecies, dbType, dbVersion)
+    mapper = dbAdaptor._fetch_featureMapper(sourceDBName, targetDBName)
+    return mapper
+    
+
+class Transcript(Sliceable, EnsemblRow):
+    '''An interface to a transcript record in the transcript table in an ensembl core database
+    >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+    >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
+    >>> transcriptAdaptor = coreDBAdaptor.get_adaptor('transcript')
+    >>> transcript = transcriptAdaptor[15960]
+    >>> print transcript.get_stable_id()
+    ENST00000382841
+    >>> print transcript.get_created_date()
+    2006-03-10 00:00:00
+    >>> print transcript.get_modified_date()
+    2006-03-10 00:00:00
+    >>> print transcript.get_version()
+    1
+    >>> exons = transcript.get_all_exons()
+    >>> for e in exons:
+    ...     print e.id, ' ', e.get_stable_id()
+    ...
+    95144   ENSE00001493540
+    95152   ENSE00001493539
+    95160   ENSE00001493538
+    95020   ENSE00000893353
+    95035   ENSE00000893354
+    95050   ENSE00000893355
+    95059   ENSE00000893356
+    95069   ENSE00000893357
+    95081   ENSE00000893358
+    95088   ENSE00000893359
+    95101   ENSE00000893360
+    95110   ENSE00000893361
+    95172   ENSE00001493527
+    '''
 
     def get_all_exons(self):
         'obtain all the exons of this transcript'
 
-        # Get the transcriptExons mapper from pygr.Data
-        resource_id = mapperResourceID + '.transcriptExons'
-        #print self.resource_id
-        transcriptExons = adaptor._get_resource(resource_id)
-        if transcriptExons == None:
-            # Create a pygr.Data transcriptExons mapper
-            
-            transcriptExons = adaptor._create_pygrDataMapper(sourceTBName, targetTBName)
-            adaptorClass = CoreDBAdaptor.TBAdaptorClass[tbname]
-            rowClass = CoreDBAdaptor.RowClass[tbname]
-            #self.tbobj = sqlgraph.SQLTable(self.db+'.'+self.tb, serverInfo=conn)
-            #self.tbobj = sqlgraph.SQLTable(self.db+'.'+self.tb, serverInfo=conn,itemClass=self.row)
-            tbAdaptor = adaptorClass(dbname, itemClass=rowClass, serverInfo=self.conn)
-           
-            # Save self.tbobj to pygr.Data
-            #_save_resource(resource_id, tbAdaptor)
-        #self.cursor = self.tbobj.cursor
-        return tbAdaptor
-        #return adaptor_name(self.db_species + '_' + self.db_type + '_' + self.db_version, self.conn)transcript_id = self.rowobj.id
-        driver = self.driver
-        exon_adaptor = driver.get_Adaptor('exon')
-        exons = exon_adaptor.fetch_exons_by_transcriptID(transcript_id)
+        
+        transcriptExons = _get_featureMapper('transcript', 'exon', self.db.name)
+        exons = transcriptExons[self]
+
         return exons
 
     #def getExternalRefs(self):
@@ -411,7 +378,7 @@ class Transcript(BaseModel, EnsemblRow):
     #def getAnalysis(self):
 
 
-class Gene(Sliceable):
+class Gene(Sliceable, EnsemblRow):
     '''An interface to a gene record in the gene table in an ensembl core database'''
 
     def __init__(self, rowobj):
@@ -513,6 +480,48 @@ def _test():
 if __name__ == '__main__': # example code
     
     _test()
+    '''
+    serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+    coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
+    
+    pexonAdaptor = coreDBAdaptor.get_adaptor('prediction_exon')
+    pExon = pexonAdaptor[10]
+    print pExon.start
+    print pExon.seq_region_start
+    print pExon.prediction_transcript_id
+    ptranscript = pExon.get_prediction_transcript()
+    print ptranscript.id
+
+    ptranscriptAdaptor = coreDBAdaptor.get_adaptor('prediction_transcript')
+    ptranscript = ptranscriptAdaptor[3]
+    print ptranscript.start
+    print ptranscript.seq_region_start
+    pexons = ptranscript.get_prediction_exons()
+    for pe in pexons:
+        print pe.id
+    
+    exonAdaptor = coreDBAdaptor.get_adaptor('exon')
+    exon = exonAdaptor[95160]
+    exon.get_stable_id()
+    exon.get_created_date()
+    exon.get_modified_date()
+    exon.get_version()
+    transcripts = exon.get_all_transcripts()
+    print 'transcript_id', 'transcript_stable_id'
+    for t in transcripts:
+        print t.id, '       ', t.get_stable_id()
+
+    transcriptAdaptor = coreDBAdaptor.get_adaptor('transcript')
+    transcript = transcriptAdaptor[15960]
+    transcript.get_stable_id()
+    transcript.get_created_date()
+    transcript.get_modified_date()
+    transcript.get_version()
+    exons = transcript.get_all_exons()
+    print 'exon_id', 'exon_stable_id'
+    for e in exons:
+        print e.id, ' ', e.get_stable_id()
+    '''
     """
     driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
     predic_transcript_adaptor = driver.get_Adaptor('prediction_transcript')
