@@ -44,6 +44,85 @@ class TranscriptToExon(object):
     def __invert__(self):
         return self.inverseDB
 
+class GeneToTranscriptInv(object):
+    'inverse of a GeneToTranscript mapping: an Ensembl transcript obj -> an Ensembl gene obj'
+
+    def __init__(self, mapper):
+        self.inverseDB = mapper
+    
+    def __getitem__(self, k):
+        'find the corresponding gene to the given transcript'
+
+        geneID = k.gene_id
+        gene = self.inverseDB.geneDB[geneID] 
+        return gene
+
+    def __invert__(self):
+        return self.inverseDB
+
+class GeneToTranscript(object):
+    'Provide a mapping of a gene obj -> a set of transcript objects'
+
+    def __init__(self, geneDB, transcriptDB):
+        self.geneDB = geneDB
+        self.transcriptDB = transcriptDB
+        self.inverseDB = GeneToTranscriptInv(self)
+
+    def __getitem__(self, k):
+        geneID = k.id
+        #n = self.cursor.execute('select exon_id from %s where transcript_id = %s' %(self.exon_transcript, transcriptID))
+        t = self.transcriptDB.select('where gene_id = %s', (geneID))
+        transcripts = []
+        for row in t:
+            #id = row[0]
+            #exon = self.exonDB[id]
+            transcripts.append(row)
+        return transcripts
+
+    def __invert__(self):
+        return self.inverseDB
+
+
+class TranscriptToTranslationInv(object):
+    'inverse of a TranscriptToTranslation mapping: an Ensembl translation obj -> an Ensembl transcript obj'
+
+    def __init__(self, mapper):
+        self.inverseDB = mapper
+    
+    def __getitem__(self, k):
+        'find the corresponding transcript to the given translation'
+
+        transcriptID = k.transcript_id
+        transcript = self.inverseDB.transcriptDB[transcriptID] 
+        return transcript
+
+    def __invert__(self):
+        return self.inverseDB
+
+class TranscriptToTranslation(object):
+    'Provide a mapping of a transcript obj -> a translation object'
+
+    def __init__(self, transcriptDB, translationDB):
+        self.transcriptDB = transcriptDB
+        self.translationDB = translationDB
+        self.inverseDB = TranscriptToTranslationInv(self)
+
+    def __getitem__(self, k):
+        transcriptID = k.id
+        t = self.translationDB.select('where transcript_id = %s', (transcriptID))
+        translations = []
+        for row in t:
+            #id = row[0]
+            #exon = self.exonDB[id]
+            translations.append(row)
+        n = len(translations)
+        if n!=1:
+            raise KeyError('duplicated! Transcript -> Translation is not one to one mapping!')
+        translation = translations[0]
+        return translation
+
+    def __invert__(self):
+        return self.inverseDB
 
 class PtranscriptToPexonInv(object):
     'inverse of a PtranscriptToPexon mapping: an Ensembl prediction_exon obj -> an Ensembl prediction_transcript obj'
