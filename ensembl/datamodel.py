@@ -328,6 +328,13 @@ class Transcript(StableObj, EnsemblRow):
     95101   ENSE00000893360
     95110   ENSE00000893361
     95172   ENSE00001493527
+    >>> gene = transcript.get_gene()
+    >>> print gene.id, gene.get_stable_id()
+    8946 ENSG00000120645
+    >>> translation = transcript.get_translation()
+    >>> print translation.id, translation.get_stable_id()
+    15121 ENSP00000372292
+
     '''
 
     def get_all_exons(self):
@@ -344,24 +351,19 @@ class Transcript(StableObj, EnsemblRow):
 
     #def getExternalRefs(self, includeTranslation):
 
-    #def getCreatedDate(self):
-
-    #def getModifiedDate(self):
-
-    def getGene(self):
+    def get_gene(self):
         'obtain its gene'
-
-        gene_id = self.getGeneID()
-        gene = Gene(gene_id)
+        
+        geneTranscripts = _get_featureMapper('gene', 'transcript', self.db.name)
+        gene = (~geneTranscripts)[self]
         return gene
 
-    def getTranslations(self):
+    def get_translation(self):
         'obtain its translation'
         
-        translation_adaptor = self.driver.get_Adaptor('translation')
-        transcript_id = self.rowobj.transcript_id
-        translations = translation_adaptor.fetch_translations_by_transcriptID(transcript_id)
-        return translations
+        transcriptTranslation = _get_featureMapper('transcript', 'translation', self.db.name)
+        translation = transcriptTranslation[self]
+        return translation
 
     #def getSupportingFeatures(self):
 
@@ -369,40 +371,27 @@ class Transcript(StableObj, EnsemblRow):
 
 
 class Gene(StableObj, EnsemblRow):
-    '''An interface to a gene record in the gene table in an ensembl core database'''
+    '''An interface to a gene record in the gene table in an ensembl core database
+    >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+    >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
+    >>> geneAdaptor = coreDBAdaptor.get_adaptor('gene')
+    >>> gene = geneAdaptor[8946]
+    >>> transcripts = gene.get_transcripts()
+    >>> for t in transcripts:
+    ...     print t.id, t.get_stable_id()
+    ...
+    15950 ENST00000326261
+    15960 ENST00000382841
+
+    '''
 
        
-    def getTranscripts(self):
+    def get_transcripts(self):
         'return transcripts if available, otherwise empty list'
-
-        gene_id = self.rowobj.gene_id
-        transcript_adaptor = self.driver.get_Adaptor('transcript')
-        transcripts = transcript_adaptor.fetch_transcripts_by_geneID(gene_id)
-        return transcripts
-    
-    def getExons(self):
-        'Obtain all the exons for each of its transcripts'
-
-        transcript_exon_dict = {}
-        transcripts = self.getTranscripts()
-        if len(transcripts) == 0:
-            return transcript_exon_dict
-        for t in transcripts:
-            exons = t.getExons()
-            transcript_exon_dict[t] = exons
-        return transcript_exon_dict
-
-    def getTranslations(self):
-        'Obtain all the translations for each of its transcripts'
         
-        transcript_translation_dict = {}
-        transcripts = self.getTranscripts()
-        if len(transcripts) == 0:
-            return transcript_translation_dict
-        for t in transcripts:
-            translations = t.getTranslations()
-            transcript_translation_dict[t] = translations
-        return transcript_translation_dict
+        geneTranscripts = _get_featureMapper('gene', 'transcript', self.db.name)
+        transcripts = geneTranscripts[self]
+        return transcripts
         
     def getExternalRefs(self):
         '''References to external databases.  They are a collection of all the 
@@ -417,7 +406,23 @@ class Gene(StableObj, EnsemblRow):
 
 
 class Translation(StableObj):
-    '''An interface to an item in the translation table in any ensembl core database'''
+    '''An interface to an item in the translation table in any ensembl core database
+    >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+    >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
+    >>> translationAdaptor = coreDBAdaptor.get_adaptor('translation')
+    >>> translation = translationAdaptor[15121]
+    >>> transcript = translation.get_transcript()
+    >>> print transcript.id, transcript.get_stable_id()
+    15960 ENST00000382841
+
+    '''
+
+    def get_transcript(self):
+        'obtain its transcript'
+        
+        transcriptTranslation = _get_featureMapper('transcript', 'translation', self.db.name)
+        transcript = (~transcriptTranslation)[self]
+        return transcript
 
     def getExons(self):
         transcript_id = self.rowobj.transcript_id
@@ -478,27 +483,36 @@ if __name__ == '__main__': # example code
     print 'transcript_id', 'transcript_stable_id'
     for t in transcripts:
         print t.id, '       ', t.get_stable_id()
-
+    
     transcriptAdaptor = coreDBAdaptor.get_adaptor('transcript')
     transcript = transcriptAdaptor[15960]
-    transcript.get_stable_id()
-    transcript.get_created_date()
-    transcript.get_modified_date()
-    transcript.get_version()
-    exons = transcript.get_all_exons()
-    print 'exon_id', 'exon_stable_id'
-    for e in exons:
-        print e.id, ' ', e.get_stable_id()
-    '''
-    """
-    driver = getDriver('ensembldb.ensembl.org', 'anonymous', 'homo_sapiens_core_47_36i')
-    predic_transcript_adaptor = driver.get_Adaptor('prediction_transcript')
-    predic_transcript = predic_transcript_adaptor.get_by_dbID(150)
-    predic_exons = predic_transcript.get_all_Exons()
-    for predic_exon in predic_exons:
-        print predic_exon.rowobj.prediction_exon_id
-    """
-    '''
+    #transcript.get_stable_id()
+    #transcript.get_created_date()
+    #transcript.get_modified_date()
+    #transcript.get_version()
+    #exons = transcript.get_all_exons()
+    #print 'exon_id', 'exon_stable_id'
+    #for e in exons:
+    #    print e.id, ' ', e.get_stable_id()
+    gene = transcript.get_gene()
+    print gene.id, gene.get_stable_id()
+    translation = transcript.get_translation()
+    print translation.id, translation.get_stable_id()
+
+    geneAdaptor = coreDBAdaptor.get_adaptor('gene')
+    gene = geneAdaptor[8946]
+    transcripts = gene.get_transcripts()
+    for t in transcripts:
+        print t.id, t.get_stable_id()
+
+    translationAdaptor = coreDBAdaptor.get_adaptor('translation')
+    translation = translationAdaptor[15121]
+    transcript = translation.get_transcript()
+    print transcript.id, transcript.get_stable_id()
+        
+    
+    
+    
     print '\ntest results for the Seqregion class:'
     seq_region = Seqregion(143909)
     print '\nseq_region.getAttributes():'
