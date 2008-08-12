@@ -31,17 +31,7 @@ class Xref(BaseModel):
     
 
 
-class Translation(BaseModel):
-    '''An interface to an item in the translation table in any ensembl core database'''
 
-    def getExons(self):
-        transcript_id = self.rowobj.transcript_id
-        start_exon_id = self.get_start_exon_id()
-        end_exon_id = self.get_end_exon_id()
-        driver = self.driver
-        exon_adaptor = driver.getAdaptor('exon')
-        exons = exon_adaptor.fetch_exons_by_translation(transcript_id, start_exon_id, end_exon_id)
-        return exons
     
 
 
@@ -138,9 +128,9 @@ class Seqregion(BaseModel):
 
 
 
-class Sliceable(BaseModel):
-    '''An interface to a generic record in a table that has a seq_region assigneto it based on the ensembl coordinate system (seq_region_id, seq_region_start, seq_region_end and seq_region_strand)'''
-
+class StableObj(BaseModel):
+    '''An interface to a generic rowObj in a table that has an ensembl stable_idassigned to it.  Subclasses of this class are Gene, Transcript, Translation and Exon'''
+    """
     def _getSeqregionDB(self):      
         'a private helper method to create a seq_region database object'
 
@@ -192,7 +182,7 @@ class Sliceable(BaseModel):
         unitobj = annoDB[unitID]
         s = unitobj.sequence
         return s
-    
+    """
     def _get_stable_id_obj(self):
         'Get a rowobj from a particular stable_id table'
 
@@ -255,7 +245,7 @@ class Sliceable(BaseModel):
 
     
 
-class Exon(Sliceable, EnsemblRow):
+class Exon(StableObj, EnsemblRow):
     '''An interface to an exon record in the exon table in an ensembl core 
     database
 
@@ -307,7 +297,7 @@ def _get_featureMapper(sourceDBName, targetDBName, name):
     return mapper
     
 
-class Transcript(Sliceable, EnsemblRow):
+class Transcript(StableObj, EnsemblRow):
     '''An interface to a transcript record in the transcript table in an ensembl core database
     >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
     >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
@@ -378,11 +368,9 @@ class Transcript(Sliceable, EnsemblRow):
     #def getAnalysis(self):
 
 
-class Gene(Sliceable, EnsemblRow):
+class Gene(StableObj, EnsemblRow):
     '''An interface to a gene record in the gene table in an ensembl core database'''
 
-    def __init__(self, rowobj):
-        Sliceable.__init__(self, rowobj)
        
     def getTranscripts(self):
         'return transcripts if available, otherwise empty list'
@@ -427,39 +415,19 @@ class Gene(Sliceable, EnsemblRow):
     def getExternalRefs(self, includeTranscriptsAndTranslations):
         'includeTranscriptsAndTranslations: a boolean flag'
 
-def _sliceable_tester(classobj):
-    '''A private helper method to test all the functions defined in the Sliceable class when invoked by a sliceable object.'''
 
-    print '\ngetAttributes():'
-    classobj.getAttributes()
-    print '\ngetAnalysisID():', classobj.getAnalysisID()
-    print '\ngetSeqregionID():', classobj.getSeqregionID()
-    print '\ngetSeqregionStart():', classobj.getSeqregionStart()
-    print '\ngetSeqregionEnd():', classobj.getSeqregionEnd()
-    print '\ngetOrientation():', classobj.getOrientation()
-    print '\ngetXrefID():', classobj.getXrefID()
-    print '\ngetBiotype():', classobj.getBiotype()
-    print '\ngetStatus():', classobj.getStatus()
-    print '\ngetDescription():', classobj.getDescription()
-    print '\nis_current():', classobj.is_current()
-    print '\nisknown():', classobj.isKnown()  
-    
-def _sliceable_stableID_tester(classobj, stableID_tb_name):
-    
-    print '\nget_stable_id(stableID_tb_name):', classobj.get_stable_id(stableID_tb_name)
-    print '\nget_created_date(stableID_tb_name):', classobj.get_created_date(stableID_tb_name)
-    print '\nget_modified_date(stableID_tb_name):', classobj.get_modified_date(stableID_tb_name)
-    print '\ngetVersion(stableID_tb_name):', classobj.getVersion(stableID_tb_name)
+class Translation(StableObj):
+    '''An interface to an item in the translation table in any ensembl core database'''
 
-def _stableID_tester(classobj):
-    '''A private helper method to test all the functions defined in the StableID class when invoked by a specialized StableID object.'''
+    def getExons(self):
+        transcript_id = self.rowobj.transcript_id
+        start_exon_id = self.get_start_exon_id()
+        end_exon_id = self.get_end_exon_id()
+        driver = self.driver
+        exon_adaptor = driver.getAdaptor('exon')
+        exons = exon_adaptor.fetch_exons_by_translation(transcript_id, start_exon_id, end_exon_id)
+        return exons
 
-    print '\ngetAttributes():'
-    classobj.getAttributes()
-    print '\ngetStableID():', classobj.getStableID()
-    print '\ngetVersion():', classobj.getVersion()
-    print '\nget_created_date():', classobj.get_created_date()
-    print '\nget_modified_date():', classobj.get_modified_date()
 
 def _getExons_tester(exons):
     'retrieve and print out all the exons returned by the *.getExons()'  
