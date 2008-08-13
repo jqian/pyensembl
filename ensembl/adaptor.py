@@ -204,8 +204,8 @@ class SeqregionAdaptor(sqlgraph.SQLTable):
 class DnaAdaptor(sqlgraph.SQLTable):
     '''Provides access to the dna table in an ensembl core database'''
 
-    def __init__(self, itemClass=None, serverInfo=None):
-        sqlgraph.SQLTable.__init__(self, itemClass=None, serverInfo=None, itemSliceClass=seqdb.SeqDBSlice, attrAlias=dict(seq='sequence'))
+    def __init__(self, name, **kwargs):
+        sqlgraph.SQLTable.__init__(self, name, itemSliceClass=seqdb.SeqDBSlice, attrAlias=dict(seq='sequence'), **kwargs)
 
     
 
@@ -483,15 +483,20 @@ class GeneAdaptor(sqlgraph.SQLTable):
             genes.append(g)
         return genes
 
+class CoordSystemAdaptor(sqlgraph.SQLTable):
+    'Provide access to the coord_system table in an ensembl core database'
+    
+
+
 class CoreDBAdaptor(object):
     'Provide access to a core database in the ensembl database system'
 
     # static attributes
     dbType = 'core'
-    TBAdaptorClass = {'dna': DnaAdaptor, 'exon': ExonAdaptor, 'gene': GeneAdaptor, 'transcript': TranscriptAdaptor, 'seq_region': SeqregionAdaptor, 'translation': TranslationAdaptor, 'gene_stable_id': GeneStableIdAdaptor, 'transcript_stable_id': TranscriptStableIdAdaptor, 'translation_stable_id': TranslationStableIdAdaptor, 'exon_stable_id': ExonStableIdAdaptor, 'xref': XrefAdaptor, 'prediction_transcript': PredictionTranscriptAdaptor, 'meta_coord': MetaCoordAdaptor, 'prediction_exon': PredictionExonAdaptor, 'peptide_archive': PeptideArchiveAdaptor}
-    RowClass = {'dna': Dna, 'exon': Exon, 'gene': Gene, 'transcript': Transcript, 'seq_region': Seqregion, 'translation': Translation, 'gene_stable_id': GeneStableID, 'transcript_stable_id': TranscriptStableID, 'translation_stable_id': TranslationStableID, 'exon_stable_id': ExonStableID, 'xref': Xref, 'prediction_transcript': PredictionTranscript, 'prediction_exon': PredictionExon, 'peptide_archive': PeptideArchive}
-    MapperClass = {'transcripttoexon': TranscriptToExon, 'prediction_transcripttoprediction_exon': PtranscriptToPexon}
-    Genomes = {'homo_sapiens_47_36i': 'Human.hg18'}
+    TBAdaptorClass = {'dna': DnaAdaptor, 'exon': ExonAdaptor, 'gene': GeneAdaptor, 'transcript': TranscriptAdaptor, 'seq_region': SeqregionAdaptor, 'translation': TranslationAdaptor, 'gene_stable_id': GeneStableIdAdaptor, 'transcript_stable_id': TranscriptStableIdAdaptor, 'translation_stable_id': TranslationStableIdAdaptor, 'exon_stable_id': ExonStableIdAdaptor, 'xref': XrefAdaptor, 'prediction_transcript': PredictionTranscriptAdaptor, 'meta_coord': MetaCoordAdaptor, 'prediction_exon': PredictionExonAdaptor, 'peptide_archive': PeptideArchiveAdaptor, 'coord_system': CoordSystemAdaptor}
+    RowClass = {'dna': Dna, 'exon': Exon, 'gene': Gene, 'transcript': Transcript, 'seq_region': Seqregion, 'translation': Translation, 'gene_stable_id': GeneStableID, 'transcript_stable_id': TranscriptStableID, 'translation_stable_id': TranslationStableID, 'exon_stable_id': ExonStableID, 'xref': Xref, 'prediction_transcript': PredictionTranscript, 'prediction_exon': PredictionExon, 'peptide_archive': PeptideArchive, 'coord_system': CoordSystem}
+    MapperClass = {'transcripttoexon': TranscriptToExon, 'prediction_transcripttoprediction_exon': PtranscriptToPexon, 'genetotranscript': GeneToTranscript, 'transcripttotranslation': TranscriptToTranslation}
+    Genomes = {'homo_sapiens_47_36i': 'HUMAN.hg18'}
 
     def __init__(self, registry, dbSpecies, dbVersion):
         
@@ -553,17 +558,16 @@ class CoreDBAdaptor(object):
         
         srAdaptor = self.get_adaptor('seq_region')
         dnaAdaptor = self.get_adaptor('dna')
-        genomeKey = self.species + '_' + self.version
+        genomeKey = self.dbSpecies + '_' + self.dbVersion
         print genomeKey
         genomeName = CoreDBAdaptor.Genomes[genomeKey]
         genomeResourceID = 'Bio.Seq.Genome.' + genomeName
-        print genomeResourceID
+        #print genomeResourceID
         genome = _get_resource(genomeResourceID)
-        
-        #import pygr.Data
-        #hg18 = pygr.Data.Bio.Seq.Genome.HUMAN.hg18() # human genome
+        #chr1seq = genome['chr1']
+        #print repr(chr1seq)
         # create a SeqRegion object
-        srdb = SeqRegion(srAdaptor, {17:genome, 4:dna}, {17:'chr', 4:None})
+        srdb = SeqRegion(srAdaptor, {17:genome, 4:dnaAdaptor}, {17:'chr', 4:None})
         return srdb
 
     def _get_seqregionDB(self):
@@ -634,40 +638,69 @@ class CoreDBAdaptor(object):
         return seqFeatureMapper
 
     
-    def fetch_slice_by_region(self, coordSystemName, seqregionName, start, end, strand):
+    def fetch_slice_by_region(self, coordSystemName, seqregionName, start=None, end=None, strand=None):
         '''Obtain the DNA sequence of a particular genomic region (defined by
-chromosome, start, end, strand) or a particular contig region.
+chromosome, chrName, start, end, strand) or a particular contig region (defined by contig, contigName, start, end, strand).
         Note: the start and end are based on ensembl 1-offset coordinate system.
+
+        >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+        >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
+        >>> s = coreDBAdaptor.fetch_slice_by_region('chromosome', '1', start=1000001, end=1000010, strand=-1)
+        >>> print str(s)
+        GCAGCCACGT
+        >>> s = coreDBAdaptor.fetch_slice_by_region('chromosome', '1', 1000001, 1000010)
+        >>> print str(s)
+        ACGTGGCTGC
+        >>> s = coreDBAdaptor.fetch_slice_by_region('chromosome', '1', end=10)
+        >>> print str(s)
+        taaccctaac
+        >>> s = coreDBAdaptor.fetch_slice_by_region('chromosome', '1', start=1, end=10)
+        >>> print str(s)
+        taaccctaac
+        >>> s = coreDBAdaptor.fetch_slice_by_region('chromosome', '1', start=247249710)
+        >>> print str(s)
+        NNNNNNNNNN
+        >>> s = coreDBAdaptor.fetch_slice_by_region('chromosome', '1', start=247249710, end=247249720)
+        >>> print str(s)
+        NNNNNNNNNN
+        >>> s = coreDBAdaptor.fetch_slice_by_region('chromosome', '1', strand=-1)
+        >>> print repr(s)
+        -chr1[0:247249719]
+        >>> s = coreDBAdaptor.fetch_slice_by_region('contig', 'AADC01095577.1.1.41877') 
+        >>> print repr(s)
+        143909[0:41877]
+        >>> print len(s)
+        41877
+        >>> s = coreDBAdaptor.fetch_slice_by_region('contig', 'AADC01095577.1.1.41877', end=10)
+        >>> print str(s)
+        CACCCTGCCC
         '''
+        
         # get the seqregion DB
-        srDB = _get_seqregionDB()
-        # retrieve the required seq_region_id from the seq_region table by the coordSystemName and seqregionName
-        
-        #cursor = seq_region.cursor
-        #n = srdb.seqRegionDB.cursor.execute('select seq_region_id from seq_region where name = %s' %(chr))
-        
-        #n = srDB.seqRegionDB.cursor.execute('select seq_region_id from %s.seq_region where name = %s' %(seq_region.db, chromosome))
-        n = srDB.seqRegionDB.cursor.execute('select seq_region_id from %s.seq_region where name = %s and coord_system_id = %s' %(self.dbName, seqregionName, coordSystemName))
-        #print "Number of rows selected: ", n
-        t = srDB.seqRegionDB.cursor.fetchall()[0]
-        seq_regionID = t[0]
-        
-        # t = seq_regiontb.select('where name = %s', (chromosome), None, 't1.seq_region)
-        #t = seq_regiontb.select('where name = %s', (chromosome))
-        #seq_region_ID = t.next().seq_region_id
-        #row = t.next()
-        #seq_region_ID = row.seq_region_id
-        #print srdb
-        
-        #print "Selected seq_region: ", seq_region_ID
-        #print seq_regiontb[seq_region_ID].coord_system_id
+        srDB = self._get_seqregionDB()
+        # retrieve the required seq_region_id from the coord_system table and the seq_region table by the coordSystemName and seqregionName
+        coordSystemAdaptor = self.get_adaptor('coord_system')
+        t1 = coordSystemAdaptor.select('where name = %s', (coordSystemName))
+       
+        coordSystemID = t1.next().coord_system_id
+        if coordSystemID == 101:
+            coordSystemID = 17 # coord_system_id for 'chromosome'
+        #print coordSystemID
+        t2 = srDB.seqRegionDB.select('where name = %s and coord_system_id = %s' , (seqregionName, coordSystemID))
+        seq_regionID = t2.next().seq_region_id
         # get the entire sequence defined by the seq_regionID
-        seq = srdb[seq_regionID]
-        #print len(chr_seq)
+        slice = srDB[seq_regionID]
         # convert an ensembl start coordinate to a Python zero-off coordinate
-        python_start = start - 1
-        # obtain the required interval
-        slice = seq[python_start:end]
+        if start is not None:
+            python_start = start - 1
+            if end is None:
+                # obtain the required interval
+                slice = slice[python_start:]
+            else:
+                slice = slice[python_start:end]
+        else:
+            if end is not None:
+                slice = slice[:end]
         # If the required interval is on the reverse strand, then return the reverse and complimented sequence interval.
         if strand == -1:
             slice = -slice
@@ -784,7 +817,14 @@ if __name__ == '__main__': # example code
     '''
     serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
     coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
-    
+    #s = coreDBAdaptor.fetch_slice_by_region('chromosome', 1, 1000001, 1000010)
+    #s = coreDBAdaptor.fetch_slice_by_region('chromosome', 1)
+    #s = coreDBAdaptor.fetch_slice_by_region('chromosome', 1, start=1000001, end=1000010, strand=-1)
+    s = coreDBAdaptor.fetch_slice_by_region('contig', 'AADC01095577.1.1.41877') 
+    print repr(s) 
+    print len(s)
+    s = coreDBAdaptor.fetch_slice_by_region('contig', 'AADC01095577.1.1.41877', end=10)
+    print str(s)
     #seqregionAdaptor = coreDBAdaptor.get_adaptor('seq_region')
     #dna = sqlgraph.SQLTable('homo_sapiens_core_47_36i.dna', serverInfo=conn, 
     #                        itemClass=EnsemblDNA,

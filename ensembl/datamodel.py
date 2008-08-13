@@ -24,6 +24,10 @@ class Dna(EnsemblDNA):
     '''An interface to a row in the dna table'''
 
 
+class CoordSystem(BaseModel):
+    '''An interface to a row in the coord_system table'''
+
+
 class Xref(BaseModel):
     '''An interface to a record in the xref table in any ensembl core database'''
 
