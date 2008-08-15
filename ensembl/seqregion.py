@@ -95,6 +95,7 @@ class EnsemblRow(sqlgraph.TupleO):
     start = SeqRegionStartDescr()
 
 
+    
 
 class EnsemblMapper(object):
     def __init__(self, annoDB, seqRegionDB):
@@ -177,6 +178,7 @@ class AssemblyMapper(object):
         'map to corresponding interval in the target coord system'
         srID = k.id #self.seqRegionInv[k]
         start,stop = k._abs_interval
+        print 'start:', start, 'stop:', stop
         print ('select t1.* from %s t1, %s t2 where t1.cmp_seq_region_id=%%s and t1.asm_seq_region_id=t2.seq_region_id and t2.coord_system_id=%%s and cmp_start-1<=%%s and cmp_end>=%%s' %(self.assembly,self.srdb.seqRegionDB.name)%(srID,self.targetCoord,start,stop))
         n = self.cursor.execute(
             'select t1.* from %s t1, %s t2 where t1.cmp_seq_region_id=%%s and t1.asm_seq_region_id=t2.seq_region_id and t2.coord_system_id=%%s and cmp_start-1<=%%s and cmp_end>=%%s'
@@ -243,7 +245,7 @@ if __name__ == '__main__': # example code
 
     # Get the set of transcripts for this exon
     mytranscripts = exon.transcripts # Likewise, this is equivalent to mytranscripts = (~transcriptToExons)[exon]
-    
+    '''
     
     seq_region = sqlgraph.SQLTable('homo_sapiens_core_47_36i.seq_region',
                                    serverInfo=conn)
@@ -253,20 +255,21 @@ if __name__ == '__main__': # example code
                             attrAlias=dict(seq='sequence'))
     import pygr.Data
     hg18 = pygr.Data.Bio.Seq.Genome.HUMAN.hg18() # human genome
+    '''
     seq_region.__doc__ = 'ensembl_seq_region(human, core, 47_36i)'
     pygr.Data.Bio.MySQL.Ensembl.HUMAN.seq_region47_36i = seq_region
     #dna.__doc__ = 'ensembl_dna(human, core, 47_36i)'
     #pygr.Data.Bio.MySQL.Ensembl.HUMAN.dna47_36i = dna
     
     pygr.Data.save()
-    
+    '''
     srdb = SeqRegion(seq_region, {17:hg18, 4:dna}, {17:'chr',4:None})
     chr1 = srdb[226034]
-    print len(chr1) # 247249719
+    #print len(chr1) # 247249719
     #chr18 = srdb[226035]
     #print len(chr18) # 76117153 
-    #exonSliceDB = sqlgraph.SQLTable('homo_sapiens_core_47_36i.exon',
-     #                               serverInfo=conn, itemClass=EnsemblRow)
+    exonSliceDB = sqlgraph.SQLTable('homo_sapiens_core_47_36i.exon',
+                                   serverInfo=conn, itemClass=EnsemblRow)
     #exonSliceDB.__doc__ = 'ensembl_exon(human, core, 47_36i)'
     #pygr.Data.Bio.MySQL.Ensembl.HUMAN.exonSliceDB47_36i = exonSliceDB
     #pygr.Data.save()
@@ -309,11 +312,11 @@ if __name__ == '__main__': # example code
     #annoDB = AnnotationDB(geneSliceDB, srdb, sliceAttrDict=
     #                      dict(id='seq_region_id',stop='seq_region_end',
     #                           orientation='seq_region_strand'))
-    e = annoDB[73777]
-    print e.orientation, e.phase, e.end_phase # 1(always 1!) 1 0
+    #e = annoDB[73777]
+    #print e.phase, e.end_phase # 1 0
     #pt = annoDB[36948]
     #pt_slice = pt.sequence[:100]
-    
+    '''
     print 'length of pt_slice:', len(pt_slice)
     print 'pt sequence first 100bp:', str(pt_slice)
     print 'length:', len(pt) # 17784
@@ -340,6 +343,7 @@ if __name__ == '__main__': # example code
     print str(s) #'GCAAGCTGTGGACAAGAAGTATGAAGGTCGCTTACAGCATTCTACACAAATTAGGCACAAAGCAGGAACCCATGGTCCGGCCTGGAGATAGG'
     print str(s.before()[-10:]) # 'GTATTCATAG' last 2 nt is splice-site
     print str(s.after()[:10]) # 'GTAAGTGCAA' first 2 nt is splice-site
+    '''
     mapper = EnsemblMapper(annoDB, srdb) # find exons for any sequence slice
     #mapper.__doc__ = "mapping of an EnsemblPredictionTranscript to a contig sequence interval in human genome 18" 
     #pygr.Data.getResource.addResource('Bio.Ensembl.mapper', mapper)
@@ -361,7 +365,7 @@ if __name__ == '__main__': # example code
     #pygr.Data.here.schema.mapper = pygr.Data.OneToManyRelation(srdb, annoDB, bindAttrs=('prediction_transcripts', 'genomic_region'))
     #pygr.Data.save()
     
-    
+    '''
     pygr.Data.here.annoDB = annoDB
     pygr.Data.here.srdb = srdb
     pygr.Data.here.mapper = mapper
@@ -385,7 +389,7 @@ if __name__ == '__main__': # example code
     print 'genomic level interval:', repr(ival)
     print 'contig level interval:', repr(cival)
     #print repr(ival), repr(cival)
-    
+    '''
     ival = chr1[:100000]
     #ival = chr1[247197525:247197890]
     #ival = chr1[4273:19669]
@@ -398,6 +402,7 @@ if __name__ == '__main__': # example code
     #s = gene_list[0].sequence
     #print str(s)
     #print len(s)
+    
     print 'neg:', mapper[-ival] # forces annotations to opposite ori...
     #print 'neg:', mapper[-cival] # forces annotations to opposite ori...
     #gene_list_neg = mapper[-ival]
@@ -405,11 +410,18 @@ if __name__ == '__main__': # example code
     #s_neg = gene_list_neg[0].sequence
     #print str(s_neg)
     #print len(s_neg)
+    '''
     s = dna[143909] # get this sequence object
     print len(s) # 41877
     #print str(s[:10]) # CACCCTGCCC
+    '''
     amap = AssemblyMapper(srdb, 4, 17) # test the assembly mapper
     contig = srdb[149878] # get a contig
+    contig = contig[48848:66632]
+    print repr(contig)
+    #g = amap[contig]
+    #print repr(g)
+    '''
     c = contig[:10] # a short slice of its beginning
     u = amap[c] # map forwards it to hg18
     print str(c) # 'ACCCCTTACC'
@@ -421,4 +433,4 @@ if __name__ == '__main__': # example code
     print repr(ival), repr(c) # chr1[1000000:1000010] 158512[13848:13858]
     print str(ival), str(c) # ACGTGGCTGC ACGTGGCTGC
     #conn.close()
-    '''    
+    '''   

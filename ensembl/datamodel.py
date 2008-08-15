@@ -7,7 +7,8 @@ class BaseModel(sqlgraph.TupleO):
     '''A generic interface to an item object in a table in the ensembl database
     '''
     
-    '''    
+    ''' 
+    #It's not working any more with the new pygr version!!! How to print out all the colunms of a table now?
     def getAttributes(self):
         'print out this row record'
 	#for k, v in self.rowobj._attrcol.iteritems():
@@ -19,6 +20,12 @@ class BaseModel(sqlgraph.TupleO):
     # test
     def getDBName(self):
         return self.db.name
+
+    def getDB(self):
+        return self.db
+
+class MetaCoord(BaseModel):
+    '''An interface to a row in the meta_coord table'''
 
 class Dna(EnsemblDNA):
     '''An interface to a row in the dna table'''
@@ -33,11 +40,6 @@ class Xref(BaseModel):
 
     
     
-
-
-
-    
-
 
 class GeneStableID(BaseModel):
     '''An interface to a record in the gene_stable_id table in any ensembl core database'''
@@ -67,8 +69,39 @@ class PeptideArchive(BaseModel):
 
 
 
-
-class PredictionExon(BaseModel, EnsemblRow):
+class Feature(BaseModel, EnsemblRow):
+    
+    def get_sequence(self, flankingSeq=None):
+        'Obtain a sequence object of the given feature.'
+  
+        tbName = self.db.name.split('.')[1]
+        from ensembl.adaptor import _get_db_parameters
+        dbParams = _get_db_parameters(self.db.name)
+        from ensembl.adaptor import _get_DB_adaptor
+        dbAdaptor = _get_DB_adaptor(dbParams[0], dbParams[1], dbParams[2])
+        #myAdaptor = dbAdaptor.get_adaptor(tbName)
+        myAnnodb = dbAdaptor._get_annotationDB(tbName, self.db)
+        annobj = myAnnodb[self.id]
+        mySeq = annobj.sequence
+        if flankingSeq is not None:
+            mySeq = mySeq.before()[-flankingSeq:] + mySeq + mySeq.after()[:flankingSeq]
+        return mySeq
+    #
+    def transform(self, newCoordSystemName):
+        from ensembl.adaptor import _get_db_parameters
+        dbParams = _get_db_parameters(self.db.name)
+        from ensembl.adaptor import _get_DB_adaptor
+        dbAdaptor = _get_DB_adaptor(dbParams[0], dbParams[1], dbParams[2])
+        amap = dbAdaptor._get_assemblyMapper()
+        seq = self.get_sequence()
+        if newCoordSystemName == 'chromosome':
+            seq = amap[seq]
+        if newCoordSystemName == 'contig':
+            seq = (~amap)[seq]
+        return seq
+            
+        
+class PredictionExon(Feature):
     '''
     An interface to a row record in the prediction_exon table
 
@@ -97,7 +130,7 @@ class PredictionExon(BaseModel, EnsemblRow):
 
     
    
-class PredictionTranscript(BaseModel, EnsemblRow):
+class PredictionTranscript(Feature):
     '''
     An interface to a prediction_transcript record in any ensembl core database
     
@@ -132,61 +165,9 @@ class Seqregion(BaseModel):
 
 
 
-class StableObj(BaseModel):
+class StableObj(object):
     '''An interface to a generic rowObj in a table that has an ensembl stable_idassigned to it.  Subclasses of this class are Gene, Transcript, Translation and Exon'''
-    """
-    def _getSeqregionDB(self):      
-        'a private helper method to create a seq_region database object'
 
-        seq_regiontb = self.driver.getAdaptor('seq_region').tbobj
-        import pygr.Data
-        hg18 = pygr.Data.Bio.Seq.Genome.HUMAN.hg18() # human genome
-        srdb = SeqRegion(seq_regiontb, {17:hg18}, {17:'chr'})
-        return srdb 
-
-
-    def _getAnnotationDB(self, unit_tbname):
-        'a private helper method to create an annotation db object'
-
-        unit_TB = self.driver.getAdaptor(unit_tbname).tbobj
-        # obtain a seq_region db object
-        srdb = self._getSeqregionDB()
-        from pygr.seqdb import AnnotationDB
-        annoDB = AnnotationDB(unit_TB, srdb, sliceAttrDict=
-                              dict(id='seq_region_id', stop='seq_region_end',
-                                   orientation='seq_region_strand'))
-        return annoDB
-
-    def _getSeqregionSeq(self):
-        '''obtain the sequence of a seq_region for a sliceable object.
-        This seq_region is defined by seq_region_id, seq_region_start, seq_region_end and seq_region_strand.
-        '''
-        
-        srdb = self._getSeqregionDB()
-        seq_region_ID = self.getSeqregionID()
-        aSeqregion = srdb[seq_region_ID]
-        aStart = self.rowobj.start 
-        aEnd = self.getSeqregionEnd()
-        aStrand = self.getOrientation()
-        if aStrand == -1:
-            aSequence = -aSeqregion[aStart:aEnd]
-        else:
-            aSequence = aSeqregion[aStart:aEnd]
-        return aSequence
-     
-    def getSequence(self, unit_tbname):
-        '''Get a sequence object of a sliceable object.
-        Note:  the sequence object is retrieved from the strand it actually resides on
-        '''
-        
-        # obtain an annotation database of a sliceable table object
-        annoDB = self._getAnnotationDB(unit_tbname)
-        
-        unitID = self.rowobj.id
-        unitobj = annoDB[unitID]
-        s = unitobj.sequence
-        return s
-    """
     def _get_stable_id_obj(self):
         'Get a rowobj from a particular stable_id table'
 
@@ -249,7 +230,7 @@ class StableObj(BaseModel):
 
     
 
-class Exon(StableObj, EnsemblRow):
+class Exon(StableObj, Feature):
     '''An interface to an exon record in the exon table in an ensembl core 
     database
 
@@ -272,7 +253,6 @@ class Exon(StableObj, EnsemblRow):
     ...
     15960         ENST00000382841
     '''
-    #def getGene(self):
 
 
     def get_all_transcripts(self):
@@ -301,7 +281,7 @@ def _get_featureMapper(sourceDBName, targetDBName, name):
     return mapper
     
 
-class Transcript(StableObj, EnsemblRow):
+class Transcript(StableObj, Feature):
     '''An interface to a transcript record in the transcript table in an ensembl core database
     >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
     >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
@@ -374,7 +354,7 @@ class Transcript(StableObj, EnsemblRow):
     #def getAnalysis(self):
 
 
-class Gene(StableObj, EnsemblRow):
+class Gene(StableObj, Feature):
     '''An interface to a gene record in the gene table in an ensembl core database
     >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
     >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
@@ -409,7 +389,7 @@ class Gene(StableObj, EnsemblRow):
         'includeTranscriptsAndTranslations: a boolean flag'
 
 
-class Translation(StableObj):
+class Translation(StableObj, BaseModel):
     '''An interface to an item in the translation table in any ensembl core database
     >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
     >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
@@ -427,7 +407,7 @@ class Translation(StableObj):
         transcriptTranslation = _get_featureMapper('transcript', 'translation', self.db.name)
         transcript = (~transcriptTranslation)[self]
         return transcript
-
+    '''
     def getExons(self):
         transcript_id = self.rowobj.transcript_id
         start_exon_id = self.get_start_exon_id()
@@ -436,19 +416,7 @@ class Translation(StableObj):
         exon_adaptor = driver.getAdaptor('exon')
         exons = exon_adaptor.fetch_exons_by_translation(transcript_id, start_exon_id, end_exon_id)
         return exons
-
-
-def _getExons_tester(exons):
-    'retrieve and print out all the exons returned by the *.getExons()'  
-  
-    if len(exons) == 0:
-        print '\nno exon returned'
-    else:
-        for index, e in enumerate(exons):
-            print '\nexon ', index, ':'
-            e.getAttributes()
-            #print 'Sequence:', str(e.getSequence())
-            print 'Length of the sequence:', len(e.getSequence('exon'))
+    '''
 
 def _test():
     import doctest
@@ -468,14 +436,22 @@ if __name__ == '__main__': # example code
     print pExon.prediction_transcript_id
     ptranscript = pExon.get_prediction_transcript()
     print ptranscript.id
-
+    
     ptranscriptAdaptor = coreDBAdaptor.get_adaptor('prediction_transcript')
-    ptranscript = ptranscriptAdaptor[3]
-    print ptranscript.start
-    print ptranscript.seq_region_start
-    pexons = ptranscript.get_prediction_exons()
-    for pe in pexons:
-        print pe.id
+    #ptranscript = ptranscriptAdaptor[3]
+    ptranscript = ptranscriptAdaptor[36948]
+    #print ptranscript.getDB()
+    ptSeq = ptranscript.get_sequence()
+    print repr(ptSeq)
+    print ptSeq.id, ptSeq.start, ptSeq.stop
+    gptSeq = ptranscript.transform('chromosome')
+    print repr(gptSeq)
+    print gptSeq.id, gptSeq.start, gptSeq.stop
+    #print ptranscript.start
+    #print ptranscript.seq_region_start
+    #pexons = ptranscript.get_prediction_exons()
+    #for pe in pexons:
+    #    print pe.id
     
     exonAdaptor = coreDBAdaptor.get_adaptor('exon')
     exon = exonAdaptor[95160]

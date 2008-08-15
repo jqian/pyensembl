@@ -4,6 +4,7 @@ from ensembl.datamodel import *
 import MySQLdb
 
 
+
 def _get_db_parameters(name):
     dbName = name.split('.')[0]
     dbSpecies = dbName.split('_')[0] + '_' + dbName.split('_')[1]
@@ -11,6 +12,54 @@ def _get_db_parameters(name):
     dbVersion = dbName.split('_')[3] + '_' + dbName.split('_')[4]
     dbParameters = [dbSpecies, dbType, dbVersion]
     return dbParameters
+
+
+
+class FeatureAdaptor(sqlgraph.SQLTable):
+    '''Provide a generic interface to an ensembl feature table.  Such table contains the 'seq_region_id', 'seq_region_start', 'seq_region_end' and 'seq_region_strand' columns.'''
+
+    def fetch_all_by_slice(self, slice):
+        'Find all the features in the given slice'
+
+        # find out slice is at genomic level or contig level
+        try:
+            sliceName = slice.id[0] + slice.id[1] + slice.id[2]
+            #sliceName = slice.id
+        except TypeError:
+            sliceName = 'None'
+        #print sliceName
+        if sliceName == 'chr':
+            level = 17 # genomic slice
+        else:
+            level = 4 # contig slice
+        # get the DB adaptor
+        dbParams = _get_db_parameters(self.name)
+        dbAdaptor = _get_DB_adaptor(dbParams[0], dbParams[1], dbParams[2])
+        tbName = self.name.split('.')[1]
+        metaCoordAdaptor = dbAdaptor.get_adaptor('meta_coord')
+        t = metaCoordAdaptor.select('where table_name = %s', (tbName))
+        coordSystemID = 17
+        for row in t:
+            if row.coord_system_id == 4:
+                coordSystemID = 4
+        #print coordSystemID
+        if coordSystemID == 17 and level == 4:
+            amap = dbAdaptor._get_assemblyMapper()
+            slice = amap[slice] # map to genomic interval
+            #print repr(slice)
+        if coordSystemID == 4 and level == 17:
+            # transform the genomic slice into a contig slice
+            amap = dbAdaptor._get_assemblyMapper()
+            slice = (~amap)[slice] # map to contig interval
+            #print repr(slice)
+        #print repr(slice)
+        seqFeatureMapper = dbAdaptor._get_seqFeatureMapper(tbName, self)
+        features = seqFeatureMapper[slice]
+        return features
+    
+class MetaCoordAdaptor(sqlgraph.SQLTable):
+    '''Provides access to the meta_coord table in an ensembl core database'''
+
 
 class TranslationAdaptor(sqlgraph.SQLTable):
     '''Provides access to the translation table in an ensembl core database
@@ -41,20 +90,6 @@ class TranslationAdaptor(sqlgraph.SQLTable):
         translations = []
         for row in t:
             translation = self[row.translation_id]
-            translations.append(translation)
-        return translations
-            
-        
-        
-
-    
-    def fetch_by_transcriptID(self, transcript_id):
-        
-        # retrieve row objects from the translation table, which statisfy the SQL select where clause
-        t = self.tbobj.select('where transcript_id = %s', (transcript_id), None, 't1.translation_id') 
-        translations = []
-        for row in t:
-            translation = Translation(row.translation_id)
             translations.append(translation)
         return translations
 
@@ -88,6 +123,7 @@ def _get_resource(resource_id):
     except pygr.Data.PygrDataNotFoundError:
         return None
 
+
 def _get_DB_adaptor(dbSpecies, dbType, dbVersion):
     
     serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
@@ -105,14 +141,12 @@ def _save_resource(resource_id, tbobj):
     # Save all pending data and schema to resource database
     pygr.Data.save()
 
+
 #def _save_mapper(mapperID, mapperObj, sourceDB, targetDB):
 #    'Save the ensembl mapper to pygr.Data'
 
 
 
-
-
-    
 class Registry(object):
     'Provide a connection to the ensembl server'
 
@@ -130,41 +164,6 @@ class Registry(object):
         return db_adaptor(self, db_species, db_version)
 
 
-
-"""
-#class Adaptor(object):
-class Adaptor(sqlgraph.SQLTable):
-    '''A base class that provides access to a generic table in a core ensembl   
-    database'''
-   
-    def __init__(self, dbname, tbname, RowObj, conn):
-        
-        sqlgraph.SQLTable.__init__(self, dbname+'.'+tbname, serverInfo=conn, itemClass=RowObj)
-
-        # Get the tbobj from pygr.Data
-        self.resource_id = 'Bio.MySQL.EnsemblTB.' + self.db + '.' + self.tb
-        #print self.resource_id
-        self.tbobj = _get_Resource(self.resource_id)
-        if self.tbobj == None:
-            # Create a pickleable SQLTable object
-            self.tbobj = sqlgraph.SQLTable(self.db+'.'+self.tb, serverInfo=conn,itemClass=self.row)
-            #self.tbobj = sqlgraph.SQLTable(self.db+'.'+self.tb, serverInfo=conn)
-            # Save self.tbobj to pygr.Data
-            #_save_resource(self.resource_id, self.tbobj)
-        self.cursor = self.tbobj.cursor
-
-    def __getitem__(self, i):
-        'Create an object based on an item from an ensembl database table'
-
-        item = self.tbobj[i]
-        itemClass = self.row_object[self.tb]
-        itemObj = itemClass(item)
-        return itemObj
-"""   
-        
-
-
-
 class MetaCoordAdaptor(sqlgraph.SQLTable):
     '''Provides access to the meta_coord table in an ensembl core database'''
     
@@ -173,33 +172,24 @@ class XrefAdaptor(sqlgraph.SQLTable):
     '''Provides access to the xref table in an ensembl core database'''
 
 
-
-
 class GeneStableIdAdaptor(sqlgraph.SQLTable):
     '''Provides access to the gene_stable_id table in an ensembl core database'''
-
-   
-    
 
 class TranscriptStableIdAdaptor(sqlgraph.SQLTable):
     '''Provides access to the transcript_stable_id table in an ensembl core database'''
 
     
-
-
 class TranslationStableIdAdaptor(sqlgraph.SQLTable):
     '''Provides access to the translation_stable_id table in an ensembl core database'''
 
     
-
-
-
 class ExonStableIdAdaptor(sqlgraph.SQLTable):
     '''Provides access to the exon_stable_id table in an ensembl core database'''
 
-    
+
 class SeqregionAdaptor(sqlgraph.SQLTable):
     '''Provides access to the seq_region table in an ensembl core database'''
+
 
 class DnaAdaptor(sqlgraph.SQLTable):
     '''Provides access to the dna table in an ensembl core database'''
@@ -208,12 +198,10 @@ class DnaAdaptor(sqlgraph.SQLTable):
         sqlgraph.SQLTable.__init__(self, name, itemSliceClass=seqdb.SeqDBSlice, attrAlias=dict(seq='sequence'), **kwargs)
 
     
-
 class PeptideArchiveAdaptor(sqlgraph.SQLTable):
     '''Provides access to the peptide_archive table in an ensembl core database'''
 
    
-
 """
 class GeneArchiveAdaptor(Adaptor):
     '''Provides access to the gene_archive table in an ensembl core database'''
@@ -223,11 +211,11 @@ class GeneArchiveAdaptor(Adaptor):
 """
 
 
-class PredictionExonAdaptor(sqlgraph.SQLTable):
+class PredictionExonAdaptor(FeatureAdaptor):
     '''Provides access to the prediction_exon table in an ensembl core database'''
 
    
-class PredictionTranscriptAdaptor(sqlgraph.SQLTable):
+class PredictionTranscriptAdaptor(FeatureAdaptor):
     '''Provides access to the prediction_transcript table in an ensembl core database'''
 
 
@@ -249,46 +237,16 @@ class PredictionTranscriptAdaptor(sqlgraph.SQLTable):
 
         '''
     
-        #t = self.tbobj.select('where display_label = %s', (display_label), EnsemblRow)
+        
         t = self.select('where display_label = %s', (display_label))
         prediction_transcripts = []
         for row in t:
             prediction_transcript = self[row.id]
             prediction_transcripts.append(prediction_transcript)
         return prediction_transcripts
-            
-    def fetch_all_by_seqregion(self, chr, start, end, strand, driver):
-        'find all the prediction_transcripts in a genomic region'
-
-        # find all the prediction_transcripts on both strands of a genomic region
-        unit_list = driver._fetch_units_by_seqregion(chr, start, end, strand, 'transcript')
-        # return only the list of transcripts found on the specified strand
-        prediction_transcripts = []
-        for annobj in unit_list:
-            if annobj.orientation == 1:
-                t = PredictionTranscript(annobj.id)
-                prediction_transcripts.append(t)
-        if len(prediction_transcripts) == 0:
-            print 'no prediction transcript found on this strand(', strand, ')'
-        return prediction_transcripts
-
-    def fetch_all_by_seqregion(self, chr, start, end, strand, driver):
-        'find all the transcripts in a genomic region'
-
-        # find all the transcripts on both strands of a genomic region
-        unit_list = driver._fetch_units_by_seqregion(chr, start, end, strand, 'transcript')
-        # return only the list of transcripts found on the specified strand
-        transcripts = []
-        for annobj in unit_list:
-            if annobj.orientation == 1:
-                t = Transcript(annobj.id)
-                transcripts.append(t)
-        if len(transcripts) == 0:
-            print 'no transcript found on this strand(', strand, ')'
-        return transcripts
     
 
-class ExonAdaptor(sqlgraph.SQLTable):
+class ExonAdaptor(FeatureAdaptor):
     '''Provides access to the exon table in an ensembl core database
     >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
     >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
@@ -298,6 +256,31 @@ class ExonAdaptor(sqlgraph.SQLTable):
     ...     print e.id, e.get_stable_id()
     ...
     95160 ENSE00001493538
+    >>> slice = coreDBAdaptor.fetch_slice_by_region('chromosome', '1', end=100000, strand = -1)
+    >>> exons = exonAdaptor.fetch_all_by_slice(slice)
+    >>> for e in exons:
+    ...     print e.exon_id, e.seq_region_id, e.sequence.id, e.seq_region_start, e.sequence.start, e.seq_region_strand, e.orientation, e.get_stable_id()
+    ...
+    13 226034 chr1 4274 -4365 -1 1 ENSE00001367146
+    12 226034 chr1 4863 -4901 -1 1 ENSE00001383334
+    11 226034 chr1 5659 -5764 -1 1 ENSE00001388009
+    10 226034 chr1 5767 -5810 -1 1 ENSE00001375216
+    9 226034 chr1 6470 -6608 -1 1 ENSE00001413614
+    8 226034 chr1 6611 -6628 -1 1 ENSE00001401257
+    7 226034 chr1 6721 -6918 -1 1 ENSE00001400263
+    6 226034 chr1 7096 -7227 -1 1 ENSE00001364065
+    5 226034 chr1 7465 -7605 -1 1 ENSE00001405391
+    4 226034 chr1 7778 -7924 -1 1 ENSE00001386644
+    3 226034 chr1 8131 -8229 -1 1 ENSE00001427794
+    2 226034 chr1 14600 -14754 -1 1 ENSE00001424900
+    1 226034 chr1 19397 -19669 -1 1 ENSE00001388796
+    16 226034 chr1 24417 -25037 -1 1 ENSE00001481229
+    15 226034 chr1 25140 -25344 -1 1 ENSE00001481230
+    14 226034 chr1 25584 -25944 -1 1 ENSE00001481231
+    17 226034 chr1 42912 -42930 1 -1 ENSE00001481227
+    18 226034 chr1 44693 -44799 1 -1 ENSE00001429474
+    281015 226034 chr1 52878 -53750 1 -1 ENSE00001481223
+    5176 226034 chr1 58954 -59871 1 -1 ENSE00001248806
 
     '''
 
@@ -312,23 +295,7 @@ class ExonAdaptor(sqlgraph.SQLTable):
             exon = self[row.exon_id]
             exons.append(exon)
         return exons
-
-
-    def fetch_exons_by_seqregion(self, chr, start, end, strand, driver):
-        'find all the exons in a genomic region (defined by chromosoem, start, end, and strand)'
-        
-        # find all the exons on both strands of a genomic region
-        unit_list =driver._fetch_units_by_seqregion(chr, start, end, strand, 'exon')
-        # only return the list of exons found on the specified strand
-        exons = []
-        for annobj in unit_list:
-            if annobj.orientation == 1:
-                e = Exon(annobj.id)
-                exons.append(e)
-        if len(exons) == 0:
-            print 'no exons found on this strand(', strand, ')'
-        return exons
-   
+"""   
     def fetch_exons_by_translation(self, transcript_id, start_exon_id, end_exon_id):
         
         cursor = self.cursor
@@ -352,9 +319,9 @@ class ExonAdaptor(sqlgraph.SQLTable):
             e = Exon(row[0])
             exons.append(e)
         return exons
+"""
 
-
-class TranscriptAdaptor(sqlgraph.SQLTable):
+class TranscriptAdaptor(FeatureAdaptor):
     '''Provides access to the transcript table in an ensembl core database
     
     >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
@@ -381,35 +348,9 @@ class TranscriptAdaptor(sqlgraph.SQLTable):
             transcripts.append(transcript)
         return transcripts
 
-    def fetch_transcripts_by_seqregion(self, chr, start, end, strand, driver):
-        'find all the transcripts in a genomic region'
-
-        # find all the transcripts on both strands of a genomic region
-        unit_list = driver._fetch_units_by_seqregion(chr, start, end, strand, 'transcript')
-        # return only the list of transcripts found on the specified strand
-        transcripts = []
-        for annobj in unit_list:
-            if annobj.orientation == 1:
-                t = Transcript(annobj.id)
-                transcripts.append(t)
-        if len(transcripts) == 0:
-            print 'no transcript found on this strand(', strand, ')'
-        return transcripts
-    
-    def fetch_transcripts_by_geneID(self, gene_id):
-        'obtain all the transcripts that share the given gene_id'
-        
-        # Obtain row objects that satisfy the select where clause
-        t = self.tbobj.select('where gene_id = %s', (gene_id), None, 't1.transcript_id')
-        transcripts = []
-        for row in t:
-            t = Transcript(row.transcript_id)
-            transcripts.append(t)
-        return transcripts
 
 
-
-class GeneAdaptor(sqlgraph.SQLTable):
+class GeneAdaptor(FeatureAdaptor):
     '''Provides access to the gene table in an ensembl core database
 
     >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
@@ -436,22 +377,7 @@ class GeneAdaptor(sqlgraph.SQLTable):
             genes.append(gene)
         return genes
 
-
-    def fetch_genes_by_seqregion(self, chr, start, end, strand, driver):
-        'find all the genes in a genomic region'
-
-        # find all the genes on both strands of a genomic region
-        unit_list =driver._fetch_units_by_seqregion(chr, start, end, strand, 'gene')
-        # return only the list of genes found on the specified strand
-        genes = []
-        for annobj in unit_list:
-            if annobj.orientation == 1:
-                g = Gene(annobj.id)
-                genes.append(g)
-        if len(genes) == 0:
-            print 'no gene found on this strand(', strand, ')'
-        return genes
-    
+    """
     def fetch_genes_by_externalRef(self, external_ref_label):
         '''Return all the genes that are associated with the given external reference or an empty set.'''
         
@@ -482,10 +408,11 @@ class GeneAdaptor(sqlgraph.SQLTable):
             g = Gene(gid)
             genes.append(g)
         return genes
+   """
+
 
 class CoordSystemAdaptor(sqlgraph.SQLTable):
     'Provide access to the coord_system table in an ensembl core database'
-    
 
 
 class CoreDBAdaptor(object):
@@ -493,8 +420,8 @@ class CoreDBAdaptor(object):
 
     # static attributes
     dbType = 'core'
-    TBAdaptorClass = {'dna': DnaAdaptor, 'exon': ExonAdaptor, 'gene': GeneAdaptor, 'transcript': TranscriptAdaptor, 'seq_region': SeqregionAdaptor, 'translation': TranslationAdaptor, 'gene_stable_id': GeneStableIdAdaptor, 'transcript_stable_id': TranscriptStableIdAdaptor, 'translation_stable_id': TranslationStableIdAdaptor, 'exon_stable_id': ExonStableIdAdaptor, 'xref': XrefAdaptor, 'prediction_transcript': PredictionTranscriptAdaptor, 'meta_coord': MetaCoordAdaptor, 'prediction_exon': PredictionExonAdaptor, 'peptide_archive': PeptideArchiveAdaptor, 'coord_system': CoordSystemAdaptor}
-    RowClass = {'dna': Dna, 'exon': Exon, 'gene': Gene, 'transcript': Transcript, 'seq_region': Seqregion, 'translation': Translation, 'gene_stable_id': GeneStableID, 'transcript_stable_id': TranscriptStableID, 'translation_stable_id': TranslationStableID, 'exon_stable_id': ExonStableID, 'xref': Xref, 'prediction_transcript': PredictionTranscript, 'prediction_exon': PredictionExon, 'peptide_archive': PeptideArchive, 'coord_system': CoordSystem}
+    TBAdaptorClass = {'meta_coord': MetaCoordAdaptor, 'dna': DnaAdaptor, 'exon': ExonAdaptor, 'gene': GeneAdaptor, 'transcript': TranscriptAdaptor, 'seq_region': SeqregionAdaptor, 'translation': TranslationAdaptor, 'gene_stable_id': GeneStableIdAdaptor, 'transcript_stable_id': TranscriptStableIdAdaptor, 'translation_stable_id': TranslationStableIdAdaptor, 'exon_stable_id': ExonStableIdAdaptor, 'xref': XrefAdaptor, 'prediction_transcript': PredictionTranscriptAdaptor, 'meta_coord': MetaCoordAdaptor, 'prediction_exon': PredictionExonAdaptor, 'peptide_archive': PeptideArchiveAdaptor, 'coord_system': CoordSystemAdaptor}
+    RowClass = {'meta_coord': MetaCoord, 'dna': Dna, 'exon': Exon, 'gene': Gene, 'transcript': Transcript, 'seq_region': Seqregion, 'translation': Translation, 'gene_stable_id': GeneStableID, 'transcript_stable_id': TranscriptStableID, 'translation_stable_id': TranslationStableID, 'exon_stable_id': ExonStableID, 'xref': Xref, 'prediction_transcript': PredictionTranscript, 'prediction_exon': PredictionExon, 'peptide_archive': PeptideArchive, 'coord_system': CoordSystem}
     MapperClass = {'transcripttoexon': TranscriptToExon, 'prediction_transcripttoprediction_exon': PtranscriptToPexon, 'genetotranscript': GeneToTranscript, 'transcripttotranslation': TranscriptToTranslation}
     Genomes = {'homo_sapiens_47_36i': 'HUMAN.hg18'}
 
@@ -511,7 +438,7 @@ class CoreDBAdaptor(object):
         'Obtain a particular table adaptor of a core database table'
         name = self.dbName + '.' + tbname
         # Get the tbobj from pygr.Data
-        resource_id = 'Bio.MySQL.EnsemblTB.' + name
+        resource_id = 'Bio.SQLTable.EnsemblTB.' + name
         #print self.resource_id
         tbAdaptor = _get_resource(resource_id)
         if tbAdaptor == None:
@@ -548,7 +475,7 @@ class CoreDBAdaptor(object):
 
     def _fetch_featureMapper(self, sourceTBName, targetTBName):
         mapperName = sourceTBName + 'to' + targetTBName
-        mapperID = 'Bio.Mapping.EnsemblFeatureMapper.' + self.dbName + '.' + mapperName
+        mapperID = 'Bio.Mapping.EnsemblMapper.' + self.dbName + '.' + sourceTBName + 'To' + targetTBName
         mapper = _get_resource(mapperID)
         if mapper == None:
             mapper = self._create_featureMapper(mapperID, sourceTBName, targetTBName)
@@ -589,12 +516,12 @@ class CoreDBAdaptor(object):
     def _get_assemblyMapper(self):
         # get the assemblyMapper from pygr.Data
         amapID = 'Bio.Mapping.EnsemblMapper.' + self.dbName + '.assembly'
-        amap = _get_resource(assemblyMapperID)
+        amap = _get_resource(amapID)
         if amap == None:
             # create an assemblyMapper
             amap = self._create_assemblyMapper()
             # save the assemblyMapper
-            _save_resource(amapID, amap)
+            #_save_resource(amapID, amap)
         return amap
             
     def _create_annoDB(self, tbAdaptor):
@@ -602,19 +529,18 @@ class CoreDBAdaptor(object):
         srDB = self._get_seqregionDB()
         from pygr.seqdb import AnnotationDB
         annoDB = AnnotationDB(tbAdaptor, srDB, sliceAttrDict= dict(id='seq_region_id', stop='seq_region_end', orientation='seq_region_strand'))
-        # save the annoDB
-        _save_resource(annoDBID)
         return annoDB
         
     def _get_annotationDB(self, tbname, tbAdaptor):
         # get the annotation DB from pygr.Data
         annoDBID = 'Bio.Annotation.EnsemblDB.' + self.dbName + '.' + tbname + 'AnnoDB'
-        print annoDBID
+        #print annoDBID
         annoDB = _get_resource(annoDBID)
         if annoDB == None:
             # create a annoDB
-            annoDB =self._create_annoDB(annoDBID, tbAdaptor)
-            
+            annoDB =self._create_annoDB(tbAdaptor)
+            # save the annoDB
+            _save_resource(annoDBID, annoDB)
         return annoDB
 
     def _create_seqFeatureMapper(self, mapperID, tbname, tbAdaptor):
@@ -628,12 +554,12 @@ class CoreDBAdaptor(object):
         
     def _get_seqFeatureMapper(self, tbName, tbAdaptor):
         # get the seqFeatureMapper from pygr.Data
-        seqFeatureMapperID = 'Bio.SeqFeatureMapping.EnsemblMapper.' + self.dbName + '.' + tbname + 's'
-        print seqFeatureMapperID
+        seqFeatureMapperID = 'Bio.Mapping.EnsemblMapper.' + self.dbName + '.' + 'slice' + 'To' + tbName + 's'
+        #print seqFeatureMapperID
         seqFeatureMapper = _get_resource(seqFeatureMapperID)
         if seqFeatureMapper == None:
             # create a seqFeatureMapper
-            seqFeatureMapper = self._create_seqFeatureMapper(seqFeatureMapperID,tbName, tbAdaptor)
+            seqFeatureMapper = self._create_seqFeatureMapper(seqFeatureMapperID, tbName, tbAdaptor)
             
         return seqFeatureMapper
 
@@ -706,105 +632,6 @@ chromosome, chrName, start, end, strand) or a particular contig region (defined 
             slice = -slice
         return slice
 
-    def _fetch_units_by_seqregion(self, chromosome, start, end, strand, unit_name):
-        '''Return a list of units (specified by unit_name, such as 'gene', 'transcript' or 'exon') found in a genomic region (defined by chromosome, start, end, strand).
-        '''
-        
-        # create a SeqregionAdaptor object
-        seq_region = self.getAdaptor('seq_region')
-        # create a SeqregionAdaptor table object
-        seq_regiontb = seq_region.tbobj
-        
-        # human genome
-        import pygr.Data
-        hg18 = pygr.Data.Bio.Seq.Genome.HUMAN.hg18() 
-
-        # ensembl sequences
-        tbname = self.dbname + '.dna'
-        dna = sqlgraph.SQLTable(tbname, cursor, 
-                            itemClass=EnsemblDNA,
-                            itemSliceClass=seqdb.SeqDBSlice,
-                            attrAlias=dict(seq='sequence'))
-
-
-        # create a SeqRegion object 
-        srdb = SeqRegion(seq_regiontb, {17:hg18, 4:dna}, {17:'chr', 4:None})
-        # create a [Exon/Gene/Transcript]Adaptor object depending on the specified unit_name
-        unit_adaptor = self.getAdaptor(unit_name)
-        # create a []Adaptor table object
-        unit_TB = unit_adaptor.tbobj
-        from pygr.seqdb import AnnotationDB
-        annoDB = AnnotationDB(unit_TB, srdb, sliceAttrDict=
-                              dict(id='seq_region_id', stop='seq_region_end',
-                                   orientation='seq_region_strand'))
-
-        mapper = EnsemblMapper(annoDB, srdb) # find units for any sequence slice
-        # retrieve the required seq_region_id from the seq_region table by chromosome name
-        '''
-        cursor = seq_region.cursor
-        n = cursor.execute('select seq_region_id from %s.seq_region where name = %s' %(seq_region.db, chromosome))
-        t = cursor.fetchall()[0]
-        seq_region_ID = t[0]
-        '''
-        t = seq_regiontb.select('where name = %s', (chromosome), None, 't1.seq_region_id')
-        row = t.next()
-        seq_region_ID = row.seq_region_id
-        # obtain the chromosome sequence object based on the seq_region_ID
-        chr_seq = srdb[seq_region_ID]
-        # convert an ensembl start 1-offset coordinate to a Python zero-offset coordinate
-        python_start = start - 1
-        ival = chr_seq[python_start:end] 
-
-        # retrieve the slice according to the specified strand
-        if strand == -1:
-            slice = -ival
-        else:
-            slice = ival
-
-        # check which coord_system the required feature belongs to
-        meta_coord_adaptor = self.getAdaptor('meta_coord')
-        meta_coord_tb = meta_coord_adaptor.tbobj
-        t = meta_coord_tb.select('where table_name = %s', (unit_name))
-        row = t.next()
-        unit_cs_id = row.coord_system_id
-        if unit_cs_id == 4:
-            # transform the sequence interval from the genomic coordinates to the contig coordinates
-        
-            # create an assembly mapper
-            amap = AssemblyMapper(srdb, 4, 17)         
-            # map the genomic slice to a contig slice
-            contig_slice = (~amap)[slice]         
-            #contig = srdb[149878][pt.sequence.start:pt.sequence.stop]
-            slice = contig_slice
-        
-        # find units in this genomic or contig sequence interval
-        unit_list = mapper[slice]
-
-        # test
-        print '\n', unit_name, 'in interval', start, '-', end, 'on both strands of chromosome', chromosome,':'
-        if len(unit_list) == 0:
-            print 'None'
-        else:
-            print unit_list # find units in this interval on both strands
-
-       
-        return unit_list
-
-
-            
-def _retrieve_units_tester(units, unit_name):
-    for index, u in enumerate(units):
-        print unit_name, index, ':'
-        u.getAttributes()
-        s = u.getSequence(unit_name)
-        print '\nLength:', len(s)
-        print '\nSequence:', str(s)
-
-def _fetch_by_stableID_tester(myAdaptor, stable_id):
-    units = myAdaptor.fetch_by_stable_id(stable_id)
-    for index, u in enumerate(units):
-        print index, ':'
-        u.getAttributes()
     
 def _test():
     import doctest
@@ -813,10 +640,19 @@ def _test():
 if __name__ == '__main__': # example code
     
     _test()
-    
-    '''
+
     serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
     coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
+    #slice = coreDBAdaptor.fetch_slice_by_region('chromosome', '1', end=100000, strand = -1)
+    #print slice.id
+    #slice = coreDBAdaptor.fetch_slice_by_region('chromosome', '18', start=31129340, end=31190706)
+    '''
+    slice = coreDBAdaptor.fetch_slice_by_region('contig', 'AC116447.10.1.105108') 
+    ptAdaptor = coreDBAdaptor.get_adaptor('prediction_transcript')
+    pts = ptAdaptor.fetch_all_by_slice(slice)
+    for pt in pts:
+        print repr(pt), pt.id, pt.display_label, pt.sequence.id, pt.sequence.start, pt.seq_region_start, pt.sequence.stop, pt.seq_region_end, pt.seq_region_strand, pt.orientation
+    
     #s = coreDBAdaptor.fetch_slice_by_region('chromosome', 1, 1000001, 1000010)
     #s = coreDBAdaptor.fetch_slice_by_region('chromosome', 1)
     #s = coreDBAdaptor.fetch_slice_by_region('chromosome', 1, start=1000001, end=1000010, strand=-1)
@@ -833,8 +669,44 @@ if __name__ == '__main__': # example code
     #hg18 = _get_resource('Bio.Seq.Genome.HUMAN.hg18')
     #srdb = SeqRegion(seq_region, {17:hg18, 4:dna}, {17:'chr',4:None})
     
+    
+    peAdaptor = coreDBAdaptor.get_adaptor('prediction_exon')
+    predictionExons = peAdaptor.fetch_all_by_slice(slice)
+    for pe in predictionExons:
+        print pe.id
+    
+    geneAdaptor = coreDBAdaptor.get_adaptor('gene')
+    genes = geneAdaptor.fetch_all_by_slice(slice)
+    for g in genes:
+        print g.gene_id, g.seq_region_id, g.sequence.id, g.seq_region_strand, g.orientation, g.get_stable_id()
+    
     transcriptAdaptor = coreDBAdaptor.get_adaptor('transcript')
+    transcripts = transcriptAdaptor.fetch_all_by_slice(slice)
+    for t in transcripts:
+        print t.transcript_id, t.seq_region_id, t.sequence.id, t.seq_region_strand, t.orientation, t.get_gene().gene_id, t.get_translation().translation_id
+    '''
     exonAdaptor = coreDBAdaptor.get_adaptor('exon')
+    #exonAnnoDB = coreDBAdaptor._get_annotationDB('exon', exonAdaptor)
+    exon = exonAdaptor[73777]
+    exonSeq = exon.get_sequence()
+    print str(exonSeq), exonSeq.orientation, repr(exonSeq), len(exonSeq)
+    exonSlice = exon.get_sequence(10)
+    print str(exonSlice), exonSlice.orientation, repr(exonSlice), len(exonSlice)
+    #annoExon = exonAnnoDB[73777]
+    #print repr(annoExon), repr(annoExon.sequence), annoExon.sequence.orientation, str(annoExon.sequence)
+    #slice = coreDBAdaptor.fetch_slice_by_region('chromosome', '10', start=444866, end=444957)
+    #print str(slice), slice.orientation, len(slice)
+    '''
+    ptAdaptor = coreDBAdaptor.get_adaptor('prediction_transcript')
+    pt = ptAdaptor[36948]
+    ptSeq = pt.get_sequence()
+    print repr(ptSeq)
+    
+    exons = exonAdaptor.fetch_all_by_slice(slice)
+    #print exons
+    for e in exons:
+        print e.exon_id, e.seq_region_id, e.sequence.id, e.seq_region_start, e.sequence.start, e.seq_region_strand, e.orientation, e.get_stable_id()
+    
     #transcriptToExons = TranscriptToExon(transcriptAdaptor, exonAdaptor)
     transcript = transcriptAdaptor[1]
     #exons = transcriptToExons[transcript]
