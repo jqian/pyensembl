@@ -131,11 +131,14 @@ def _get_DB_adaptor(dbSpecies, dbType, dbVersion):
     return myDBAdaptor
 
 
-def _save_resource(resource_id, tbobj):
+def _save_resource(resource_id, tbobj, suffix=None):
     'Save the ensembl database table adaptor to pygr.Data'
 
     import pygr.Data
-    tbobj.__doc__ = 'ensembl ' + resource_id.split('.')[3] + ' ' + resource_id.split('.')[4] + ' table'
+    if suffix is None:
+        tbobj.__doc__ = 'ensembl ' + resource_id.split('.')[3] + ' ' + resource_id.split('.')[4]
+    else:
+        tbobj.__doc__ = 'ensembl ' + resource_id.split('.')[3] + ' ' + resource_id.split('.')[4] + ' ' + suffix 
     print 'saving', tbobj.__doc__, '...'
     pygr.Data.addResource(resource_id, tbobj)
     # Save all pending data and schema to resource database
@@ -422,7 +425,7 @@ class CoreDBAdaptor(object):
     dbType = 'core'
     TBAdaptorClass = {'meta_coord': MetaCoordAdaptor, 'dna': DnaAdaptor, 'exon': ExonAdaptor, 'gene': GeneAdaptor, 'transcript': TranscriptAdaptor, 'seq_region': SeqregionAdaptor, 'translation': TranslationAdaptor, 'gene_stable_id': GeneStableIdAdaptor, 'transcript_stable_id': TranscriptStableIdAdaptor, 'translation_stable_id': TranslationStableIdAdaptor, 'exon_stable_id': ExonStableIdAdaptor, 'xref': XrefAdaptor, 'prediction_transcript': PredictionTranscriptAdaptor, 'meta_coord': MetaCoordAdaptor, 'prediction_exon': PredictionExonAdaptor, 'peptide_archive': PeptideArchiveAdaptor, 'coord_system': CoordSystemAdaptor}
     RowClass = {'meta_coord': MetaCoord, 'dna': Dna, 'exon': Exon, 'gene': Gene, 'transcript': Transcript, 'seq_region': Seqregion, 'translation': Translation, 'gene_stable_id': GeneStableID, 'transcript_stable_id': TranscriptStableID, 'translation_stable_id': TranslationStableID, 'exon_stable_id': ExonStableID, 'xref': Xref, 'prediction_transcript': PredictionTranscript, 'prediction_exon': PredictionExon, 'peptide_archive': PeptideArchive, 'coord_system': CoordSystem}
-    MapperClass = {'transcripttoexon': TranscriptToExon, 'prediction_transcripttoprediction_exon': PtranscriptToPexon, 'genetotranscript': GeneToTranscript, 'transcripttotranslation': TranscriptToTranslation}
+    MapperClass = {'exon_transcript': ExonToTranscript, 'prediction_transcript_prediction_exon': PtranscriptToPexon, 'gene_transcript': GeneToTranscript, 'transcript_translation': TranscriptToTranslation}
     Genomes = {'homo_sapiens_47_36i': 'HUMAN.hg18'}
 
     def __init__(self, registry, dbSpecies, dbVersion):
@@ -438,7 +441,7 @@ class CoreDBAdaptor(object):
         'Obtain a particular table adaptor of a core database table'
         name = self.dbName + '.' + tbname
         # Get the tbobj from pygr.Data
-        resource_id = 'Bio.SQLTable.EnsemblTB.' + name
+        resource_id = 'Bio.Annotation.Ensembl.' + name + '.' + 'sqltable'
         #print self.resource_id
         tbAdaptor = _get_resource(resource_id)
         if tbAdaptor == None:
@@ -448,45 +451,49 @@ class CoreDBAdaptor(object):
             tbAdaptor = adaptorClass(name, itemClass=rowClass, serverInfo=self.conn)
            
             # Save self.tbobj to pygr.Data
-            _save_resource(resource_id, tbAdaptor)
+            _save_resource(resource_id, tbAdaptor, 'sqltable')
         return tbAdaptor
 
 
-    def _create_featureMapper(self, mapperID, sourceTBName, targetTBName):
-        tableResourceID = 'Bio.SQLTable.EnsemblTB'
+    def _create_featureMapper(self, sourceTBName, targetTBName):
+        tableResourceID = 'Bio.Annotation.Ensembl'
     
-        sourceResID = tableResourceID + '.' + self.dbName + '.' + sourceTBName
+        sourceResID = tableResourceID + '.' + self.dbName + '.' + sourceTBName + '.' + 'sqltable'
         #print 'sourceResID: ', sourceResID
-        targetResID = tableResourceID + '.' + self.dbName + '.' + targetTBName
+        targetResID = tableResourceID + '.' + self.dbName + '.' + targetTBName + '.' + 'sqltable'
         #print 'targetResID: ', targetResID
         sourceTB = _get_resource(sourceResID)
         if sourceTB == None:
             sourceTB = self.get_adaptor(sourceTBName)
-            _save_resource(sourceResID, sourceTB)
+            _save_resource(sourceResID, sourceTB, 'sqltable')
         targetTB = _get_resource(targetResID)
         if targetTB == None:
             targetTB = self.get_adaptor(targetTBName)
-            _save_resource(targetResID, targetTB)
-        mapperName = sourceTBName + 'to' + targetTBName
+            _save_resource(targetResID, targetTB, 'sqltable')
+        mapperName = sourceTBName + '_' + targetTBName
         mapperClass = CoreDBAdaptor.MapperClass[mapperName] 
         myMapper = mapperClass(sourceTB, targetTB)
-        #_save_mapper(mapperID, myMapper, sourceTB, targetTB)
-        return myMapper
+        mapperData = [myMapper, sourceTB, targetTB]
+        return mapperData
 
     def _fetch_featureMapper(self, sourceTBName, targetTBName):
-        mapperName = sourceTBName + 'to' + targetTBName
-        mapperID = 'Bio.Mapping.EnsemblMapper.' + self.dbName + '.' + sourceTBName + 'To' + targetTBName
+        mapperName = sourceTBName + '_' + targetTBName
+        mapperID = 'Bio.Annotation.Ensembl.' + self.dbName + '.' + mapperName
         mapper = _get_resource(mapperID)
         if mapper == None:
-            mapper = self._create_featureMapper(mapperID, sourceTBName, targetTBName)
+            mapperData = self._create_featureMapper(sourceTBName, targetTBName)
+            mapper = mapperData[0]
+            sourceTB = mapperData[1]
+            targetTB = mapperData[2]
+            #_save_mapper(mapperID, mapper, sourceTB, targetTB)
         return mapper
 
-    def _create_seqregionDB(self):
+    def _create_seqregion(self):
         
-        srAdaptor = self.get_adaptor('seq_region')
+        srDBAdaptor = self.get_adaptor('seq_region')
         dnaAdaptor = self.get_adaptor('dna')
         genomeKey = self.dbSpecies + '_' + self.dbVersion
-        print genomeKey
+        #print genomeKey
         genomeName = CoreDBAdaptor.Genomes[genomeKey]
         genomeResourceID = 'Bio.Seq.Genome.' + genomeName
         #print genomeResourceID
@@ -494,46 +501,45 @@ class CoreDBAdaptor(object):
         #chr1seq = genome['chr1']
         #print repr(chr1seq)
         # create a SeqRegion object
-        srdb = SeqRegion(srAdaptor, {17:genome, 4:dnaAdaptor}, {17:'chr', 4:None})
-        return srdb
+        sr = SeqRegion(srDBAdaptor, {17:genome, 4:dnaAdaptor}, {17:'chr', 4:None})
+        return sr
 
-    def _get_seqregionDB(self):
-        # get the seqregion DB from pygr.Data
-        srDBID = 'Bio.SeqRegion.EnsemblDB.' + self.dbName + '.seqregionDB'
-        seqRegionDB = _get_resource(srDBID)
-        if seqRegionDB == None:
+    def _get_seqregion(self):
+        # get the seqregion object from pygr.Data
+        srID = 'Bio.Seq.Ensembl.' + self.dbName + '.seq'
+        seqRegion = _get_resource(srID)
+        if seqRegion == None:
             # create a seqRegionDB
-            seqRegionDB =self._create_seqregionDB()
+            seqRegion = self._create_seqregion()
             # save the seqRegionDB
-            _save_resource(srDBID, seqRegionDB)
-        return seqRegionDB
+            _save_resource(srID, seqRegion)
+        return seqRegion
 
     def _create_assemblyMapper(self):
-        srDB = self._get_seqregionDB()
-        amap = AssemblyMapper(srDB, 4, 17)
+        sr = self._get_seqregion()
+        amap = AssemblyMapper(sr, 4, 17)
         return amap
 
     def _get_assemblyMapper(self):
         # get the assemblyMapper from pygr.Data
-        amapID = 'Bio.Mapping.EnsemblMapper.' + self.dbName + '.assembly'
+        amapID = 'Bio.MSA.Ensembl.' + self.dbName + '.assembly'
         amap = _get_resource(amapID)
         if amap == None:
             # create an assemblyMapper
             amap = self._create_assemblyMapper()
             # save the assemblyMapper
-            #_save_resource(amapID, amap)
+            _save_resource(amapID, amap)
         return amap
             
     def _create_annoDB(self, tbAdaptor):
-        #tbAdaptor = self.get_adaptor(tbname)
-        srDB = self._get_seqregionDB()
+        sr = self._get_seqregion()
         from pygr.seqdb import AnnotationDB
-        annoDB = AnnotationDB(tbAdaptor, srDB, sliceAttrDict= dict(id='seq_region_id', stop='seq_region_end', orientation='seq_region_strand'))
+        annoDB = AnnotationDB(tbAdaptor, sr, sliceAttrDict= dict(id='seq_region_id', stop='seq_region_end', orientation='seq_region_strand'))
         return annoDB
         
     def _get_annotationDB(self, tbname, tbAdaptor):
         # get the annotation DB from pygr.Data
-        annoDBID = 'Bio.Annotation.EnsemblDB.' + self.dbName + '.' + tbname + 'AnnoDB'
+        annoDBID = 'Bio.Annotation.Ensembl.' + self.dbName + '.' + tbname
         #print annoDBID
         annoDB = _get_resource(annoDBID)
         if annoDB == None:
@@ -543,23 +549,28 @@ class CoreDBAdaptor(object):
             _save_resource(annoDBID, annoDB)
         return annoDB
 
-    def _create_seqFeatureMapper(self, mapperID, tbname, tbAdaptor):
+    def _create_seqFeatureMapper(self, tbname, tbAdaptor):
         annoDB = self._get_annotationDB(tbname, tbAdaptor)
-        srDB = self._get_seqregionDB()
-        mapper = EnsemblMapper(annoDB, srDB) 
-        # save the seqFeatureMappper
-        #_save_mapper(mapperID, seqFeatureMapper, srDB, annoDB)
-        return mapper
+        sr = self._get_seqregion()
+        mapper = EnsemblMapper(annoDB, sr)
+        mapperData = [mapper, annoDB, sr]
+        return mapperData
         
         
     def _get_seqFeatureMapper(self, tbName, tbAdaptor):
         # get the seqFeatureMapper from pygr.Data
-        seqFeatureMapperID = 'Bio.Mapping.EnsemblMapper.' + self.dbName + '.' + 'slice' + 'To' + tbName + 's'
+        seqFeatureMapperID = 'Bio.Annotation.Ensembl.' + self.dbName + '.' + 'slice' + 'To' + tbName + 's'
         #print seqFeatureMapperID
         seqFeatureMapper = _get_resource(seqFeatureMapperID)
         if seqFeatureMapper == None:
             # create a seqFeatureMapper
-            seqFeatureMapper = self._create_seqFeatureMapper(seqFeatureMapperID, tbName, tbAdaptor)
+            mapperData = self._create_seqFeatureMapper(tbName, tbAdaptor)
+            seqFeatureMapper = mapperData[0]
+            annoDB = mapperData[1]
+            sr = mapperData[2]
+        
+            # save the seqFeatureMappper
+            #_save_mapper(mapperID, seqFeatureMapper, sr, annoDB)
             
         return seqFeatureMapper
 
@@ -603,7 +614,7 @@ chromosome, chrName, start, end, strand) or a particular contig region (defined 
         '''
         
         # get the seqregion DB
-        srDB = self._get_seqregionDB()
+        sr = self._get_seqregion()
         # retrieve the required seq_region_id from the coord_system table and the seq_region table by the coordSystemName and seqregionName
         coordSystemAdaptor = self.get_adaptor('coord_system')
         t1 = coordSystemAdaptor.select('where name = %s', (coordSystemName))
@@ -612,10 +623,10 @@ chromosome, chrName, start, end, strand) or a particular contig region (defined 
         if coordSystemID == 101:
             coordSystemID = 17 # coord_system_id for 'chromosome'
         #print coordSystemID
-        t2 = srDB.seqRegionDB.select('where name = %s and coord_system_id = %s' , (seqregionName, coordSystemID))
+        t2 = sr.seqRegionDB.select('where name = %s and coord_system_id = %s' , (seqregionName, coordSystemID))
         seq_regionID = t2.next().seq_region_id
         # get the entire sequence defined by the seq_regionID
-        slice = srDB[seq_regionID]
+        slice = sr[seq_regionID]
         # convert an ensembl start coordinate to a Python zero-off coordinate
         if start is not None:
             python_start = start - 1
@@ -640,13 +651,13 @@ def _test():
 if __name__ == '__main__': # example code
     
     _test()
-
+    '''
     serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
     coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
     #slice = coreDBAdaptor.fetch_slice_by_region('chromosome', '1', end=100000, strand = -1)
     #print slice.id
     #slice = coreDBAdaptor.fetch_slice_by_region('chromosome', '18', start=31129340, end=31190706)
-    '''
+    
     slice = coreDBAdaptor.fetch_slice_by_region('contig', 'AC116447.10.1.105108') 
     ptAdaptor = coreDBAdaptor.get_adaptor('prediction_transcript')
     pts = ptAdaptor.fetch_all_by_slice(slice)
@@ -684,7 +695,7 @@ if __name__ == '__main__': # example code
     transcripts = transcriptAdaptor.fetch_all_by_slice(slice)
     for t in transcripts:
         print t.transcript_id, t.seq_region_id, t.sequence.id, t.seq_region_strand, t.orientation, t.get_gene().gene_id, t.get_translation().translation_id
-    '''
+    
     exonAdaptor = coreDBAdaptor.get_adaptor('exon')
     #exonAnnoDB = coreDBAdaptor._get_annotationDB('exon', exonAdaptor)
     exon = exonAdaptor[73777]
@@ -696,7 +707,7 @@ if __name__ == '__main__': # example code
     #print repr(annoExon), repr(annoExon.sequence), annoExon.sequence.orientation, str(annoExon.sequence)
     #slice = coreDBAdaptor.fetch_slice_by_region('chromosome', '10', start=444866, end=444957)
     #print str(slice), slice.orientation, len(slice)
-    '''
+    
     ptAdaptor = coreDBAdaptor.get_adaptor('prediction_transcript')
     pt = ptAdaptor[36948]
     ptSeq = pt.get_sequence()
