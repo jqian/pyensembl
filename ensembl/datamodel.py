@@ -72,21 +72,31 @@ class PeptideArchive(BaseModel):
 class Feature(BaseModel, EnsemblRow):
     
     def get_sequence(self, flankingSeq=None):
-        'Obtain a sequence object of the given feature.'
+        '''Obtain a sequence object of the given feature, including its flanking region on both sides if required.  Note: if the feature locates on the reverse strand, the sequence returned will be from the reverse strand.
+        >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+        >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
+        >>> exonAdaptor = coreDBAdaptor.get_adaptor('exon')
+        >>> exon = exonAdaptor[73777]
+        >>> exonSeq = exon.get_sequence()
+        >>> print str(exonSeq), exonSeq.orientation, repr(exonSeq), len(exonSeq)
+        GCAAGCTGTGGACAAGAAGTATGAAGGTCGCTTACAGCATTCTACACAAATTAGGCACAAAGCAGGAACCCATGGTCCGGCCTGGAGATAGG -1 -chr10[444865:444957] 92
+        >>> exonSlice = exon.get_sequence(10)
+        >>> print str(exonSlice), exonSlice.orientation, repr(exonSlice), len(exonSlice)
+        GTATTCATAGGCAAGCTGTGGACAAGAAGTATGAAGGTCGCTTACAGCATTCTACACAAATTAGGCACAAAGCAGGAACCCATGGTCCGGCCTGGAGATAGGGTAAGTGCAA -1 -chr10[444855:444967] 112
+        '''
   
         tbName = self.db.name.split('.')[1]
         from ensembl.adaptor import _get_db_parameters
         dbParams = _get_db_parameters(self.db.name)
         from ensembl.adaptor import _get_DB_adaptor
         dbAdaptor = _get_DB_adaptor(dbParams[0], dbParams[1], dbParams[2])
-        #myAdaptor = dbAdaptor.get_adaptor(tbName)
         myAnnodb = dbAdaptor._get_annotationDB(tbName, self.db)
         annobj = myAnnodb[self.id]
         mySeq = annobj.sequence
         if flankingSeq is not None:
             mySeq = mySeq.before()[-flankingSeq:] + mySeq + mySeq.after()[:flankingSeq]
         return mySeq
-    #
+    
     def transform(self, newCoordSystemName):
         from ensembl.adaptor import _get_db_parameters
         dbParams = _get_db_parameters(self.db.name)
@@ -247,6 +257,8 @@ class Exon(StableObj, Feature):
     2006-03-10 00:00:00
     >>> print exon.get_version()
     1
+    '''
+    '''
     >>> transcripts = exon.get_all_transcripts()
     >>> for t in transcripts:
     ...     print t.id, '       ', t.get_stable_id()
@@ -259,7 +271,7 @@ class Exon(StableObj, Feature):
         'Obtain all the transcripts this exon belongs to'
 
         
-        transcriptExons = _get_featureMapper('transcript', 'exon', self.db.name)
+        transcriptExons = _get_featureMapper('exon', 'transcript', self.db.name)
         transcripts = (~transcriptExons)[self]
 
         return transcripts
@@ -295,6 +307,8 @@ class Transcript(StableObj, Feature):
     2006-03-10 00:00:00
     >>> print transcript.get_version()
     1
+    '''
+    '''
     >>> exons = transcript.get_all_exons()
     >>> for e in exons:
     ...     print e.id, ' ', e.get_stable_id()
@@ -318,14 +332,14 @@ class Transcript(StableObj, Feature):
     >>> translation = transcript.get_translation()
     >>> print translation.id, translation.get_stable_id()
     15121 ENSP00000372292
-
     '''
+    
 
     def get_all_exons(self):
         'obtain all the exons of this transcript'
 
         
-        transcriptExons = _get_featureMapper('transcript', 'exon', self.db.name)
+        transcriptExons = _get_featureMapper('exon', 'transcript', self.db.name)
         exons = transcriptExons[self]
 
         return exons
