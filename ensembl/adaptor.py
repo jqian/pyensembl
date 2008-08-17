@@ -96,7 +96,7 @@ class TranslationAdaptor(sqlgraph.SQLTable):
 
 
 def get_registry(**kwargs):
-    '''Provides a method to generate a connection to the MySQL server
+    '''Provides a method to generate a connection object to the MySQL server
 
     >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
     >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
@@ -107,7 +107,7 @@ def get_registry(**kwargs):
     >>> print exon.seq_region_strand
     -1
     '''
-
+   
     if Registry._instance == None:
         Registry._instance = Registry(**kwargs)
     return Registry._instance
@@ -131,24 +131,26 @@ def _get_DB_adaptor(dbSpecies, dbType, dbVersion):
     return myDBAdaptor
 
 
-def _save_resource(resource_id, tbobj, suffix=None):
-    'Save the ensembl database table adaptor to pygr.Data'
+def _save_resource(resource_id, resource, suffix=None):
+    'Save an ensembl database resource to pygr.Data'
 
     import pygr.Data
     if suffix is None:
-        tbobj.__doc__ = 'ensembl ' + resource_id.split('.')[3] + ' ' + resource_id.split('.')[4]
+        resource.__doc__ = 'ensembl ' + resource_id.split('.')[3] + ' ' + resource_id.split('.')[4]
     else:
-        tbobj.__doc__ = 'ensembl ' + resource_id.split('.')[3] + ' ' + resource_id.split('.')[4] + ' ' + suffix 
-    print 'saving', tbobj.__doc__, '...'
-    pygr.Data.addResource(resource_id, tbobj)
+        resource.__doc__ = 'ensembl ' + resource_id.split('.')[3] + ' ' + resource_id.split('.')[4] + ' ' + suffix 
+    print 'saving', resource.__doc__, '...'
+    pygr.Data.addResource(resource_id, resource)
     # Save all pending data and schema to resource database
     pygr.Data.save()
 
 
-#def _save_mapper(mapperID, mapperObj, sourceDB, targetDB):
+#def _save_mapper(mapperID, mapper, sourceDB, targetDB):
 #    'Save the ensembl mapper to pygr.Data'
 
 
+#def _save_graph(graphID, graph, sourceDB, targetDB):
+#    'Save the ensembl graph to pygr.Data'
 
 class Registry(object):
     'Provide a connection to the ensembl server'
@@ -157,7 +159,18 @@ class Registry(object):
 
     def __init__(self, **kwargs):
         self.kwargs = kwargs # connection arguments
-        self.conn = sqlgraph.DBServerInfo(**self.kwargs)
+        # get an ensembl server connection from pygr.Data, if it's not there, create one and save it
+        connID = 'Bio.Server.Ensembl.Ensembldb'
+        self.conn = _get_resource(connID)
+        if self.conn is None:
+            self.conn = sqlgraph.DBServerInfo(**self.kwargs)
+            # save the DBServerInfo for connecting to Ensembl's MySQL server into pygr.Data
+            import pygr.Data
+            self.conn.__doc__ = 'DBServerInfo for connecting to ensembldb.ensembl.org'
+            print 'saving', self.conn.__doc__, '...'
+            pygr.Data.addResource(connID, self.conn)
+            # Save all pending data and schema to resource database
+            pygr.Data.save()
         self.db_adaptor = {'core': CoreDBAdaptor}
 
     def get_DBAdaptor(self, db_species, db_type, db_version):
