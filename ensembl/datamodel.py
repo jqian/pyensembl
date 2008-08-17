@@ -258,39 +258,78 @@ class Exon(StableObj, Feature):
     >>> print exon.get_version()
     1
     '''
-    '''
-    >>> transcripts = exon.get_all_transcripts()
-    >>> for t in transcripts:
-    ...     print t.id, '       ', t.get_stable_id()
-    ...
-    15960         ENST00000382841
-    '''
-
 
     def get_all_transcripts(self):
-        'Obtain all the transcripts this exon belongs to'
-
+        '''Obtain all the transcript annotations this exon belongs to
+        >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+        >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
+        >>> exonAdaptor = coreDBAdaptor.get_adaptor('exon')
+        >>> exon = exonAdaptor[28696]
+        >>> transcriptAnnots = exon.get_all_transcripts()
+        >>> for t in transcriptAnnots:
+        ...   print t.id, t.seq_region_start, len(t.sequence)
+        5413 2032725 639645
+        5429 2032990 637731
+        5445 2032990 637731
+        5457 2032990 637731
+        5460 2032990 637731
+        5468 2032990 637731
+        5476 2032990 637731
+        5491 2032990 638597
+        5510 2032990 637731
+        5524 2032990 637731
+        5534 2032990 637731
+        5547 2032990 638597
+        5561 2032990 637731
+        5575 2032990 637731
+        5581 2032990 638597
+        5592 2032990 637731
+        5607 2032990 637731
+        5616 2032990 637731
+        5623 2032990 637731
+        5630 2094650 582727
+        5637 2428398 248979
+        5925 2428398 242323
+        5930 2483863 186858
+        5945 2428398 248979
+        '''
         
-        transcriptExons = _get_featureMapper('exon', 'transcript', self.db.name)
-        transcripts = (~transcriptExons)[self]
+        exonTranscriptGraphData = _get_featureGraph('exon', 'transcript', self.db.name)
+        exonTranscriptGraph = exonTranscriptGraphData[0]
+        exonAnnoDB = exonTranscriptGraphData[1]
+        exonAnnot = exonAnnoDB[self.id]
+        transcriptAnnots = exonTranscriptGraph[exonAnnot]
 
-        return transcripts
+        return transcriptAnnots
 
     
     # test
     def get_start(self):
         return self.start
 
-def _get_featureMapper(sourceDBName, targetDBName, name):
+def _get_featureMapper(sourceTBName, targetTBName, name):
     
-    dbName = name.split('.')[0]
-    dbSpecies = dbName.split('_')[0] + '_' + dbName.split('_')[1]
-    dbType = dbName.split('_')[2]
-    dbVersion = dbName.split('_')[3] + '_' + dbName.split('_')[4]
+    from ensembl.adaptor import _get_db_parameters
+    dbParams = _get_db_parameters(name)
+    dbSpecies = dbParams[0]
+    dbType = dbParams[1]
+    dbVersion = dbParams[2]
     from ensembl.adaptor import _get_DB_adaptor
     dbAdaptor = _get_DB_adaptor(dbSpecies, dbType, dbVersion)
-    mapper = dbAdaptor._fetch_featureMapper(sourceDBName, targetDBName)
+    mapper = dbAdaptor._fetch_featureMapper(sourceTBName, targetTBName)
     return mapper
+
+def _get_featureGraph(sourceTBName, targetTBName, name):
+
+    from ensembl.adaptor import _get_db_parameters
+    dbParams = _get_db_parameters(name)
+    dbSpecies = dbParams[0]
+    dbType = dbParams[1]
+    dbVersion = dbParams[2]
+    from ensembl.adaptor import _get_DB_adaptor
+    dbAdaptor = _get_DB_adaptor(dbSpecies, dbType, dbVersion)
+    graphData = dbAdaptor._fetch_featureGraph(sourceTBName, targetTBName)
+    return graphData
     
 
 class Transcript(StableObj, Feature):
@@ -336,13 +375,38 @@ class Transcript(StableObj, Feature):
     
 
     def get_all_exons(self):
-        'obtain all the exons of this transcript'
+        '''obtain all the exon annotations of this transcript
+        >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+        >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
+        >>> transcriptAdaptor = coreDBAdaptor.get_adaptor('transcript')
+        >>> transcript = transcriptAdaptor[1]
+        >>> exonAnnots = transcript.get_all_exons()
+        >>> for e in exonAnnots:
+        ...   print e.id, e.sequence
+        1 GGAAAGCGGGTCAAGGCGTAGGGCTGGAGGGCAGGGGCGGGCCCTGGGCGTGGGCTGGGGGTCCTGCCCCGGGGCGCACCCCGGGCGAGGGCTGCCCGGAGGAGCCGAGGTTGGCGGACAGCTTGGCCCTGAGCTTGAGGGGAAGGCAGCGATGGGACAAAGGACGGAGGTCTAGGAAGAGGGTCTGCAGAGCAGAAAGCACGGGTAGGGGCGGCCTGACGCTCGGAAGACAACGCATGGGAGCCGTGTGCACGTCGGGAGCTCGGAGTGAGC
+        2 GCACCATGACTCCTGTGAGGATGCAGCACTCCCTGGCAGGTCAGACCTATGCCGTGCCCTTCATCCAGCCAGACCTGCGGCGAGAGGAGGCCGTCCAGCAGATGGCGGATGCCCTGCAGTACCTGCAGAAGGTCTCTGGAGACATCTTCAGCAGG
+        3 GTAGAGCAGAGCCGGAGCCAGGTGCAGGCCATTGGAGAGAAGGTCTCCTTGGCCCAGGCCAAGATTGAGAAGATCAAGGGCAGCAAGAAGGCCATCAAG
+        4 GTGTTCTCCAGTGCCAAGTACCCTGCTCCAGGGCGCCTGCAGGAATATGGCTCCATCTTCACGGGCGCCCAGGACCCTGGCCTGCAGAGACGCCCCCGCCACAGGATCCAGAGCAAGCACCGCCCCCTGGACGAGCGGGCCCTGCAG
+        5 GAGAAGCTGAAGGACTTTCCTGTGTGCGTGAGCACCAAGCCGGAGCCCGAGGACGATGCAGAAGAGGGACTTGGGGGTCTTCCCAGCAACATCAGCTCTGTCAGCTCCTTGCTGCTCTTCAACACCACCGAGAACCTGTAT
+        6 AAGAAGTATGTCTTCCTGGACCCCCTGGCTGGTGCTGTAACAAAGACCCATGTGATGCTGGGGGCAGAGACAGAGGAGAAGCTGTTTGATGCCCCCTTGTCCATCAGCAAGAGAGAGCAGCTGGAACAGCAG
+        7 GTCCCAGAGAACTACTTCTATGTGCCAGACCTGGGCCAGGTGCCTGAGATTGATGTTCCATCCTACCTGCCTGACCTGCCCGGCATTGCCAACGACCTCATGTACATTGCCGACCTGGGCCCCGGCATTGCCCCCTCTGCCCCTGGCACCATTCCAGAACTGCCCACCTTCCACACTGAGGTAGCCGAGCCTCTCAAG
+        8 ACCTACAAGATGGGGTac
+        9 acaccacccccaccgcccccaccaccacccccaGCTCCTGAGGTGCTGGCCAGTGCACCCCCACTCCCACCCTCAACCGCGGCCCCTGTAGGCCAAGGCGCCAGGCAGGACGACAGCAGCAGCAGCGCGTCTCCTTCAG
+        10 TCCAGGGAGCTCCCAGGGAAGTGGTTGACCCCTCCGGTGGCTGG
+        11 ACTCTGCTAGAGTCCATCCGCCAAGCTGGGGGCATCGGCAAGGCCAAGCTGCGCAGCATGAAGGAGCGAAAGCTGGAGAAGCAGCAGCAGAAGGAGCAGGAGCAAG
+        12 TGAGAGCCACGAGCCAAGGTGGGCACTTGATGTCGGATC
+        13 TGCTCCATGGGGGGACGGCTCCACCCAGCCTGCGCCACTGTGTTCTTAAGAGGCTTCCAGAGAAAACGGCACACCAATCAATAAAGAACTGA
+
+        '''
 
         
-        transcriptExons = _get_featureMapper('exon', 'transcript', self.db.name)
-        exons = transcriptExons[self]
+        exonTranscriptGraphData = _get_featureGraph('exon', 'transcript', self.db.name)
+        exonTranscriptGraph = exonTranscriptGraphData[0]
+        transcriptAnnoDB = exonTranscriptGraphData[2]
+        transcriptAnnot = transcriptAnnoDB[self.id]
+        exonAnnots = (~exonTranscriptGraph)[transcriptAnnot]
 
-        return exons
+        return exonAnnots
 
     #def getExternalRefs(self):
     #    return getExternalRefs(true);
@@ -468,6 +532,17 @@ if __name__ == '__main__': # example code
     #    print pe.id
     
     exonAdaptor = coreDBAdaptor.get_adaptor('exon')
+    exon = exonAdaptor[28696]
+    transcriptAnnots = exon.get_all_transcripts()
+    for t in transcriptAnnots:
+        print t.id, t.seq_region_start, len(t.sequence)
+
+    transcriptAdaptor = coreDBAdaptor.get_adaptor('transcript')
+    transcript = transcriptAdaptor[1]
+    exonAnnots = transcript.get_all_exons()
+    for e in exonAnnots:
+        print e.id, e.sequence
+    
     exon = exonAdaptor[95160]
     exon.get_stable_id()
     exon.get_created_date()

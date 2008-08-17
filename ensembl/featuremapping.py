@@ -1,4 +1,5 @@
-class TranscriptToExonInv(object):
+''' # These two classes are replaced by the magic sqlgraph.SQLGraph class
+class ExonToTranscriptInv(object):
     'inverse of a TranscriptToExon mapping: Ensembl exon obj -> Ensembl transcript obj'
 
     def __init__(self, mapper):
@@ -20,7 +21,7 @@ class TranscriptToExonInv(object):
     def __invert__(self):
         return self.inverseDB
 
-class TranscriptToExon(object):
+class ExonToTranscript(object):
     'Provide a mapping of a transcript obj -> a set of exon objects'
 
     def __init__(self, transcriptDB, exonDB):
@@ -43,7 +44,7 @@ class TranscriptToExon(object):
 
     def __invert__(self):
         return self.inverseDB
-
+'''
 class GeneToTranscriptInv(object):
     'inverse of a GeneToTranscript mapping: an Ensembl transcript obj -> an Ensembl gene obj'
 

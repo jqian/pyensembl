@@ -425,7 +425,7 @@ class CoreDBAdaptor(object):
     dbType = 'core'
     TBAdaptorClass = {'meta_coord': MetaCoordAdaptor, 'dna': DnaAdaptor, 'exon': ExonAdaptor, 'gene': GeneAdaptor, 'transcript': TranscriptAdaptor, 'seq_region': SeqregionAdaptor, 'translation': TranslationAdaptor, 'gene_stable_id': GeneStableIdAdaptor, 'transcript_stable_id': TranscriptStableIdAdaptor, 'translation_stable_id': TranslationStableIdAdaptor, 'exon_stable_id': ExonStableIdAdaptor, 'xref': XrefAdaptor, 'prediction_transcript': PredictionTranscriptAdaptor, 'meta_coord': MetaCoordAdaptor, 'prediction_exon': PredictionExonAdaptor, 'peptide_archive': PeptideArchiveAdaptor, 'coord_system': CoordSystemAdaptor}
     RowClass = {'meta_coord': MetaCoord, 'dna': Dna, 'exon': Exon, 'gene': Gene, 'transcript': Transcript, 'seq_region': Seqregion, 'translation': Translation, 'gene_stable_id': GeneStableID, 'transcript_stable_id': TranscriptStableID, 'translation_stable_id': TranslationStableID, 'exon_stable_id': ExonStableID, 'xref': Xref, 'prediction_transcript': PredictionTranscript, 'prediction_exon': PredictionExon, 'peptide_archive': PeptideArchive, 'coord_system': CoordSystem}
-    MapperClass = {'exon_transcript': ExonToTranscript, 'prediction_transcript_prediction_exon': PtranscriptToPexon, 'gene_transcript': GeneToTranscript, 'transcript_translation': TranscriptToTranslation}
+    MapperClass = {'prediction_transcript_prediction_exon': PtranscriptToPexon, 'gene_transcript': GeneToTranscript, 'transcript_translation': TranscriptToTranslation}
     Genomes = {'homo_sapiens_47_36i': 'HUMAN.hg18'}
 
     def __init__(self, registry, dbSpecies, dbVersion):
@@ -487,6 +487,47 @@ class CoreDBAdaptor(object):
             targetTB = mapperData[2]
             #_save_mapper(mapperID, mapper, sourceTB, targetTB)
         return mapper
+
+    def _create_featureGraph(self, sourceTBName, targetTBName):
+        tableResourceID = 'Bio.Annotation.Ensembl'
+    
+        sourceResID = tableResourceID + '.' + self.dbName + '.' + sourceTBName + '.' + 'sqltable'
+        #print 'sourceResID: ', sourceResID
+        targetResID = tableResourceID + '.' + self.dbName + '.' + targetTBName + '.' + 'sqltable'
+        #print 'targetResID: ', targetResID
+        sourceTB = _get_resource(sourceResID)
+        if sourceTB == None:
+            sourceTB = self.get_adaptor(sourceTBName)
+            _save_resource(sourceResID, sourceTB, 'sqltable')
+        targetTB = _get_resource(targetResID)
+        if targetTB == None:
+            targetTB = self.get_adaptor(targetTBName)
+            _save_resource(targetResID, targetTB, 'sqltable')
+        graphName = sourceTBName + '_' + targetTBName
+        name = self.dbName + '.' + graphName 
+        sourceAnnoDB = self._get_annotationDB(sourceTBName, sourceTB)
+        targetAnnoDB = self._get_annotationDB(targetTBName, targetTB)
+        # create a forward mapping from sourceDB -> targetDB
+        myGraph = sqlgraph.SQLGraph(name,serverInfo=self.conn, sourceDB=sourceAnnoDB, targetDB=targetAnnoDB, attrAlias=dict(source_id='exon_id', target_id='transcript_id')) 
+        graphData = [myGraph, sourceAnnoDB, targetAnnoDB]
+        return graphData
+
+    def _fetch_featureGraph(self, sourceTBName, targetTBName):
+        '''Obtain a feature -> feature graph object and its associated sourceAnnotationDB and targetAnnotationDB'''
+
+        graphName = sourceTBName + '_' + targetTBName
+        graphID = 'Bio.Annotation.Ensembl.' + self.dbName + '.' + graphName
+        graph = _get_resource(graphID)
+        if graph == None:
+            # create a SQLGraph object
+            graphData = self._create_featureGraph(sourceTBName, targetTBName)
+            graph = graphData[0]
+            sourceDB = graphData[1]
+            targetDB = graphData[2]
+            
+            #_save_graph(graphID, graph, sourceDB, targetDB)
+        return graphData
+            
 
     def _create_seqregion(self):
         
