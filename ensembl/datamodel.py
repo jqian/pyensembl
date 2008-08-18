@@ -404,13 +404,13 @@ class Transcript(StableObj, Feature):
         ...    print len(fiveUtr.sequence), str(fiveUtr.sequence)
         ...
         236 GGAAAGCGGGTCAAGGCGTAGGGCTGGAGGGCAGGGGCGGGCCCTGGGCGTGGGCTGGGGGTCCTGCCCCGGGGCGCACCCCGGGCGAGGGCTGCCCGGAGGAGCCGAGGTTGGCGGACAGCTTGGCCCTGAGCTTGAGGGGAAGGCAGCGATGGGACAAAGGACGGAGGTCTAGGAAGAGGGTCTGCAGAGCAGAAAGCACGGGTAGGGGCGGCCTGACGCTCGGAAGACAACGC
-        >>> threeUtr = transcript.get_three_utr()
+        >>> threeUtr = transcript.get_three_utr() # rainy test
         No 3'-untranslated region found.  All the sequence of the end_exon is needed for translation.
         >>> if threeUtr is not None:
         ...    print len(threeUtr.sequence), str(threeUtr.sequence)
         
         >>> transcript = transcriptAdaptor[15121]
-        >>> fiveUtr = transcript.get_five_utr()
+        >>> fiveUtr = transcript.get_five_utr() # rainy test
         No 5'-untranslated region found.  Translation starts at the beginning of the start_exon
         >>> if fiveUtr is not None:
         ...    print repr(fiveUtr.sequence), len(fiveUtr.sequence), str(fiveUtr.sequence)
@@ -420,11 +420,15 @@ class Transcript(StableObj, Feature):
         ...    print len(threeUtr.sequence), str(threeUtr.sequence)
         ...
         649 CTACCGTCTTTTTGCTAGGACTTAAACTGACTTGAGTGTGGCAAAAAGTTAACAAAAAAGGAGAAAAAATGAACAATCGTTTGTGGTTTCTTGGGAAAACTTTTCATACCAGGTGATACTATTCAAAAACCCCGTTGTCTCCCTGCAAGTGCTGATTTGAAATGCAGAAGCCACAGTaaaaaaaaaaaaaaaaaaaaaaaaaaagaaaaaaaaaTCAAAATGTATAAATATTGGAAATCAAGTTTTTCAGCTGTTTTGTTGGTTGGTTGGTTGGTTTTTGTTTGGTTTTGTTTAAATGGGCAAGAAGTAAATAATGTGGCTGGAATACAAGTTGAACAAACTAGAAGACACAAATCTAACATAGTTTTTATGGACCAAGGAACTTGTATATTGTATAAGCTTTAGTAAAAGGTACATTTTCACCATACCTTTTTTTATATCACGGTATTATAGTACACCTTGTTACCAAATAGGTTGTTCTCTTCCCCACCCACCTTTGAGCTTTTGCTCTAAAATACATTCAGGTTCCAAGCCTGACCATCCTTGTTTAATCTATCATACTCTTCCAGGTTTTTTTTTTTTGGTCTAAGGCTGGAACTTTTTTCTTTTTTTTCAGCTGAAGTCTTATGACTTTTCATGAGTCAAAATT
-
+        >>> transcript = transcriptAdaptor[214] # boundary test
+        >>> fiveUtr = transcript.get_five_utr()
+        This transcript is not translateable!
+        >>> threeUtr = transcript.get_three_utr()
+        This transcript is not translateable!
+        >>> translation = transcript.get_translation()
+        This transcript is not translateable!
 
         '''
-
-        
         exonTranscriptGraphData = _get_featureGraph('exon', 'transcript', self.db.name)
         exonTranscriptGraph = exonTranscriptGraphData[0]
         transcriptAnnoDB = exonTranscriptGraphData[2]
@@ -496,7 +500,7 @@ class Transcript(StableObj, Feature):
         return gene
 
     def get_translation(self):
-        'obtain its translation'
+        'Obtain its translation.  Return None if no translation found for this transcript'
         
         transcriptTranslation = _get_featureMapper('transcript', 'translation', self.db.name)
         translation = transcriptTranslation[self]
@@ -663,7 +667,13 @@ if __name__ == '__main__': # example code
         print t.id, t.seq_region_start, len(t.sequence)
     
     transcriptAdaptor = coreDBAdaptor.get_adaptor('transcript')
-    transcript = transcriptAdaptor[1]
+    transcript = transcriptAdaptor[214]
+    #transcript = transcriptAdaptor[1]
+    translation = transcript.get_translation()
+    if translation is not None:
+        print translation.id
+    
+    #transcript = transcriptAdaptor[1]
     #transcript = transcriptAdaptor[15960]
     #transcript = transcriptAdaptor[15121]
     #exonAnnots = transcript.get_all_exons()
@@ -671,7 +681,7 @@ if __name__ == '__main__': # example code
     #    print e.id, len(e.sequence), e.sequence
     #splicedSeq = transcript.get_spliced_seq()
     #print len(splicedSeq), str(splicedSeq)
-
+    
     fiveUtr = transcript.get_five_utr()
     if fiveUtr is not None:
         print repr(fiveUtr.sequence), len(fiveUtr.sequence), str(fiveUtr.sequence)
