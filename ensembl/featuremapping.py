@@ -111,19 +111,27 @@ class TranscriptToTranslation(object):
     def __getitem__(self, k):
         transcriptID = k.id
         t = self.translationDB.select('where transcript_id = %s', (transcriptID))
+        translation = None
         translations = []
         for row in t:
             #id = row[0]
             #exon = self.exonDB[id]
             translations.append(row)
         n = len(translations)
-        if n!=1:
+        if n>1:
             raise KeyError('duplicated! Transcript -> Translation is not one to one mapping!')
-        translation = translations[0]
+        if n == 0:
+            print 'This transcript is not translateable!'
+        else:
+            translation = translations[0]
         return translation
 
     def __invert__(self):
         return self.inverseDB
+
+
+
+
 
 class PtranscriptToPexonInv(object):
     'inverse of a PtranscriptToPexon mapping: an Ensembl prediction_exon obj -> an Ensembl prediction_transcript obj'
