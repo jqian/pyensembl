@@ -382,20 +382,45 @@ class Transcript(StableObj, Feature):
         >>> transcript = transcriptAdaptor[1]
         >>> exonAnnots = transcript.get_all_exons()
         >>> for e in exonAnnots:
-        ...   print e.id, e.sequence
-        1 GGAAAGCGGGTCAAGGCGTAGGGCTGGAGGGCAGGGGCGGGCCCTGGGCGTGGGCTGGGGGTCCTGCCCCGGGGCGCACCCCGGGCGAGGGCTGCCCGGAGGAGCCGAGGTTGGCGGACAGCTTGGCCCTGAGCTTGAGGGGAAGGCAGCGATGGGACAAAGGACGGAGGTCTAGGAAGAGGGTCTGCAGAGCAGAAAGCACGGGTAGGGGCGGCCTGACGCTCGGAAGACAACGCATGGGAGCCGTGTGCACGTCGGGAGCTCGGAGTGAGC
-        2 GCACCATGACTCCTGTGAGGATGCAGCACTCCCTGGCAGGTCAGACCTATGCCGTGCCCTTCATCCAGCCAGACCTGCGGCGAGAGGAGGCCGTCCAGCAGATGGCGGATGCCCTGCAGTACCTGCAGAAGGTCTCTGGAGACATCTTCAGCAGG
-        3 GTAGAGCAGAGCCGGAGCCAGGTGCAGGCCATTGGAGAGAAGGTCTCCTTGGCCCAGGCCAAGATTGAGAAGATCAAGGGCAGCAAGAAGGCCATCAAG
-        4 GTGTTCTCCAGTGCCAAGTACCCTGCTCCAGGGCGCCTGCAGGAATATGGCTCCATCTTCACGGGCGCCCAGGACCCTGGCCTGCAGAGACGCCCCCGCCACAGGATCCAGAGCAAGCACCGCCCCCTGGACGAGCGGGCCCTGCAG
-        5 GAGAAGCTGAAGGACTTTCCTGTGTGCGTGAGCACCAAGCCGGAGCCCGAGGACGATGCAGAAGAGGGACTTGGGGGTCTTCCCAGCAACATCAGCTCTGTCAGCTCCTTGCTGCTCTTCAACACCACCGAGAACCTGTAT
-        6 AAGAAGTATGTCTTCCTGGACCCCCTGGCTGGTGCTGTAACAAAGACCCATGTGATGCTGGGGGCAGAGACAGAGGAGAAGCTGTTTGATGCCCCCTTGTCCATCAGCAAGAGAGAGCAGCTGGAACAGCAG
-        7 GTCCCAGAGAACTACTTCTATGTGCCAGACCTGGGCCAGGTGCCTGAGATTGATGTTCCATCCTACCTGCCTGACCTGCCCGGCATTGCCAACGACCTCATGTACATTGCCGACCTGGGCCCCGGCATTGCCCCCTCTGCCCCTGGCACCATTCCAGAACTGCCCACCTTCCACACTGAGGTAGCCGAGCCTCTCAAG
-        8 ACCTACAAGATGGGGTac
-        9 acaccacccccaccgcccccaccaccacccccaGCTCCTGAGGTGCTGGCCAGTGCACCCCCACTCCCACCCTCAACCGCGGCCCCTGTAGGCCAAGGCGCCAGGCAGGACGACAGCAGCAGCAGCGCGTCTCCTTCAG
-        10 TCCAGGGAGCTCCCAGGGAAGTGGTTGACCCCTCCGGTGGCTGG
-        11 ACTCTGCTAGAGTCCATCCGCCAAGCTGGGGGCATCGGCAAGGCCAAGCTGCGCAGCATGAAGGAGCGAAAGCTGGAGAAGCAGCAGCAGAAGGAGCAGGAGCAAG
-        12 TGAGAGCCACGAGCCAAGGTGGGCACTTGATGTCGGATC
-        13 TGCTCCATGGGGGGACGGCTCCACCCAGCCTGCGCCACTGTGTTCTTAAGAGGCTTCCAGAGAAAACGGCACACCAATCAATAAAGAACTGA
+        ...   print e.id, len(e.sequence), e.sequence
+        1 273 GGAAAGCGGGTCAAGGCGTAGGGCTGGAGGGCAGGGGCGGGCCCTGGGCGTGGGCTGGGGGTCCTGCCCCGGGGCGCACCCCGGGCGAGGGCTGCCCGGAGGAGCCGAGGTTGGCGGACAGCTTGGCCCTGAGCTTGAGGGGAAGGCAGCGATGGGACAAAGGACGGAGGTCTAGGAAGAGGGTCTGCAGAGCAGAAAGCACGGGTAGGGGCGGCCTGACGCTCGGAAGACAACGCATGGGAGCCGTGTGCACGTCGGGAGCTCGGAGTGAGC
+        2 155 GCACCATGACTCCTGTGAGGATGCAGCACTCCCTGGCAGGTCAGACCTATGCCGTGCCCTTCATCCAGCCAGACCTGCGGCGAGAGGAGGCCGTCCAGCAGATGGCGGATGCCCTGCAGTACCTGCAGAAGGTCTCTGGAGACATCTTCAGCAGG
+        3 99 GTAGAGCAGAGCCGGAGCCAGGTGCAGGCCATTGGAGAGAAGGTCTCCTTGGCCCAGGCCAAGATTGAGAAGATCAAGGGCAGCAAGAAGGCCATCAAG
+        4 147 GTGTTCTCCAGTGCCAAGTACCCTGCTCCAGGGCGCCTGCAGGAATATGGCTCCATCTTCACGGGCGCCCAGGACCCTGGCCTGCAGAGACGCCCCCGCCACAGGATCCAGAGCAAGCACCGCCCCCTGGACGAGCGGGCCCTGCAG
+        5 141 GAGAAGCTGAAGGACTTTCCTGTGTGCGTGAGCACCAAGCCGGAGCCCGAGGACGATGCAGAAGAGGGACTTGGGGGTCTTCCCAGCAACATCAGCTCTGTCAGCTCCTTGCTGCTCTTCAACACCACCGAGAACCTGTAT
+        6 132 AAGAAGTATGTCTTCCTGGACCCCCTGGCTGGTGCTGTAACAAAGACCCATGTGATGCTGGGGGCAGAGACAGAGGAGAAGCTGTTTGATGCCCCCTTGTCCATCAGCAAGAGAGAGCAGCTGGAACAGCAG
+        7 198 GTCCCAGAGAACTACTTCTATGTGCCAGACCTGGGCCAGGTGCCTGAGATTGATGTTCCATCCTACCTGCCTGACCTGCCCGGCATTGCCAACGACCTCATGTACATTGCCGACCTGGGCCCCGGCATTGCCCCCTCTGCCCCTGGCACCATTCCAGAACTGCCCACCTTCCACACTGAGGTAGCCGAGCCTCTCAAG
+        8 18 ACCTACAAGATGGGGTac
+        9 139 acaccacccccaccgcccccaccaccacccccaGCTCCTGAGGTGCTGGCCAGTGCACCCCCACTCCCACCCTCAACCGCGGCCCCTGTAGGCCAAGGCGCCAGGCAGGACGACAGCAGCAGCAGCGCGTCTCCTTCAG
+        10 44 TCCAGGGAGCTCCCAGGGAAGTGGTTGACCCCTCCGGTGGCTGG
+        11 106 ACTCTGCTAGAGTCCATCCGCCAAGCTGGGGGCATCGGCAAGGCCAAGCTGCGCAGCATGAAGGAGCGAAAGCTGGAGAAGCAGCAGCAGAAGGAGCAGGAGCAAG
+        12 39 TGAGAGCCACGAGCCAAGGTGGGCACTTGATGTCGGATC
+        13 92 TGCTCCATGGGGGGACGGCTCCACCCAGCCTGCGCCACTGTGTTCTTAAGAGGCTTCCAGAGAAAACGGCACACCAATCAATAAAGAACTGA
+        >>> splicedSeq = transcript.get_spliced_seq()
+        >>> print len(splicedSeq), str(splicedSeq)
+        1583 GGAAAGCGGGTCAAGGCGTAGGGCTGGAGGGCAGGGGCGGGCCCTGGGCGTGGGCTGGGGGTCCTGCCCCGGGGCGCACCCCGGGCGAGGGCTGCCCGGAGGAGCCGAGGTTGGCGGACAGCTTGGCCCTGAGCTTGAGGGGAAGGCAGCGATGGGACAAAGGACGGAGGTCTAGGAAGAGGGTCTGCAGAGCAGAAAGCACGGGTAGGGGCGGCCTGACGCTCGGAAGACAACGCATGGGAGCCGTGTGCACGTCGGGAGCTCGGAGTGAGCGCACCATGACTCCTGTGAGGATGCAGCACTCCCTGGCAGGTCAGACCTATGCCGTGCCCTTCATCCAGCCAGACCTGCGGCGAGAGGAGGCCGTCCAGCAGATGGCGGATGCCCTGCAGTACCTGCAGAAGGTCTCTGGAGACATCTTCAGCAGGGTAGAGCAGAGCCGGAGCCAGGTGCAGGCCATTGGAGAGAAGGTCTCCTTGGCCCAGGCCAAGATTGAGAAGATCAAGGGCAGCAAGAAGGCCATCAAGGTGTTCTCCAGTGCCAAGTACCCTGCTCCAGGGCGCCTGCAGGAATATGGCTCCATCTTCACGGGCGCCCAGGACCCTGGCCTGCAGAGACGCCCCCGCCACAGGATCCAGAGCAAGCACCGCCCCCTGGACGAGCGGGCCCTGCAGGAGAAGCTGAAGGACTTTCCTGTGTGCGTGAGCACCAAGCCGGAGCCCGAGGACGATGCAGAAGAGGGACTTGGGGGTCTTCCCAGCAACATCAGCTCTGTCAGCTCCTTGCTGCTCTTCAACACCACCGAGAACCTGTATAAGAAGTATGTCTTCCTGGACCCCCTGGCTGGTGCTGTAACAAAGACCCATGTGATGCTGGGGGCAGAGACAGAGGAGAAGCTGTTTGATGCCCCCTTGTCCATCAGCAAGAGAGAGCAGCTGGAACAGCAGGTCCCAGAGAACTACTTCTATGTGCCAGACCTGGGCCAGGTGCCTGAGATTGATGTTCCATCCTACCTGCCTGACCTGCCCGGCATTGCCAACGACCTCATGTACATTGCCGACCTGGGCCCCGGCATTGCCCCCTCTGCCCCTGGCACCATTCCAGAACTGCCCACCTTCCACACTGAGGTAGCCGAGCCTCTCAAGACCTACAAGATGGGGTacacaccacccccaccgcccccaccaccacccccaGCTCCTGAGGTGCTGGCCAGTGCACCCCCACTCCCACCCTCAACCGCGGCCCCTGTAGGCCAAGGCGCCAGGCAGGACGACAGCAGCAGCAGCGCGTCTCCTTCAGTCCAGGGAGCTCCCAGGGAAGTGGTTGACCCCTCCGGTGGCTGGACTCTGCTAGAGTCCATCCGCCAAGCTGGGGGCATCGGCAAGGCCAAGCTGCGCAGCATGAAGGAGCGAAAGCTGGAGAAGCAGCAGCAGAAGGAGCAGGAGCAAGTGAGAGCCACGAGCCAAGGTGGGCACTTGATGTCGGATCTGCTCCATGGGGGGACGGCTCCACCCAGCCTGCGCCACTGTGTTCTTAAGAGGCTTCCAGAGAAAACGGCACACCAATCAATAAAGAACTGA
+        >>> fiveUtr = transcript.get_five_utr()
+        >>> if fiveUtr is not None:
+        ...    print len(fiveUtr.sequence), str(fiveUtr.sequence)
+        ...
+        236 GGAAAGCGGGTCAAGGCGTAGGGCTGGAGGGCAGGGGCGGGCCCTGGGCGTGGGCTGGGGGTCCTGCCCCGGGGCGCACCCCGGGCGAGGGCTGCCCGGAGGAGCCGAGGTTGGCGGACAGCTTGGCCCTGAGCTTGAGGGGAAGGCAGCGATGGGACAAAGGACGGAGGTCTAGGAAGAGGGTCTGCAGAGCAGAAAGCACGGGTAGGGGCGGCCTGACGCTCGGAAGACAACGC
+        >>> threeUtr = transcript.get_three_utr()
+        No 3'-untranslated region found.  All the sequence of the end_exon is needed for translation.
+        >>> if threeUtr is not None:
+        ...    print len(threeUtr.sequence), str(threeUtr.sequence)
+        
+        >>> transcript = transcriptAdaptor[15121]
+        >>> fiveUtr = transcript.get_five_utr()
+        No 5'-untranslated region found.  Translation starts at the beginning of the start_exon
+        >>> if fiveUtr is not None:
+        ...    print repr(fiveUtr.sequence), len(fiveUtr.sequence), str(fiveUtr.sequence)
+        
+        >>> threeUtr = transcript.get_three_utr()
+        >>> if threeUtr is not None:
+        ...    print len(threeUtr.sequence), str(threeUtr.sequence)
+        ...
+        649 CTACCGTCTTTTTGCTAGGACTTAAACTGACTTGAGTGTGGCAAAAAGTTAACAAAAAAGGAGAAAAAATGAACAATCGTTTGTGGTTTCTTGGGAAAACTTTTCATACCAGGTGATACTATTCAAAAACCCCGTTGTCTCCCTGCAAGTGCTGATTTGAAATGCAGAAGCCACAGTaaaaaaaaaaaaaaaaaaaaaaaaaaagaaaaaaaaaTCAAAATGTATAAATATTGGAAATCAAGTTTTTCAGCTGTTTTGTTGGTTGGTTGGTTGGTTTTTGTTTGGTTTTGTTTAAATGGGCAAGAAGTAAATAATGTGGCTGGAATACAAGTTGAACAAACTAGAAGACACAAATCTAACATAGTTTTTATGGACCAAGGAACTTGTATATTGTATAAGCTTTAGTAAAAGGTACATTTTCACCATACCTTTTTTTATATCACGGTATTATAGTACACCTTGTTACCAAATAGGTTGTTCTCTTCCCCACCCACCTTTGAGCTTTTGCTCTAAAATACATTCAGGTTCCAAGCCTGACCATCCTTGTTTAATCTATCATACTCTTCCAGGTTTTTTTTTTTTGGTCTAAGGCTGGAACTTTTTTCTTTTTTTTCAGCTGAAGTCTTATGACTTTTCATGAGTCAAAATT
+
 
         '''
 
@@ -407,6 +432,56 @@ class Transcript(StableObj, Feature):
         exonAnnots = (~exonTranscriptGraph)[transcriptAnnot]
 
         return exonAnnots
+
+    def get_spliced_seq(self):
+        'Obtain the spliced sequence of the transcript'
+        
+        # stitches all the exon sequences of the transcript together
+        exonAnnots = self.get_all_exons()
+        splicedSeq = ''
+        for e in exonAnnots:
+            splicedSeq += str(e.sequence)
+        return splicedSeq
+
+    def get_five_utr(self): 
+        '''Obtain the five-prime untranslated region of the transcript.  Return None, if the transcript is not translateable or the translation starts at the beginning of the start_exon.'''
+
+        fiveUtr = None
+        exonAnnots = self.get_all_exons()
+        translation = self.get_translation()
+        if translation is not None:
+            startExonID = translation.start_exon_id
+            start = translation.seq_start
+            for e in exonAnnots: 
+                if e.id == startExonID:
+                    startExon = e
+                    #print repr(startExon.sequence)
+            try:
+                fiveUtr = startExon[:start-1]
+            except IndexError:
+                print "No 5'-untranslated region found.  Translation starts at the beginning of the start_exon"
+        return fiveUtr
+
+    def get_three_utr(self):
+        '''Obtain the three-prime untranslated region of the transcript.  ReturnNone, if the transcript is not translateable or the translation ends in the end of the end_exon.'''
+        
+        threeUtr = None
+        exonAnnots = self.get_all_exons()
+        translation = self.get_translation()
+        if translation is not None:
+            endExonID = translation.end_exon_id
+            end = translation.seq_end
+            #print end
+            for e in exonAnnots:
+                if e.id == endExonID:
+                    endExon = e
+                    #print e.id, repr(endExon.sequence)
+            try:
+                threeUtr = endExon[end:]
+            except IndexError:
+                print "No 3'-untranslated region found.  All the sequence of the end_exon is needed for translation."
+        return threeUtr
+        
 
     #def getExternalRefs(self):
     #    return getExternalRefs(true);
@@ -427,6 +502,56 @@ class Transcript(StableObj, Feature):
         translation = transcriptTranslation[self]
         return translation
 
+    def get_translateable_exons(self):
+        'obtain all translateable exons'
+        '''
+        # get all the exon annotations
+        exonAnnots = self.get_all_exons()
+        num = len(exonAnnots)
+        # get its translation object
+        translation = self.get_translation()
+        startExonID = translation.start_exon_id
+        endExonID = translation.end_exon_id
+        # get all the exons starting from the start_exon
+        myExonAnnots = []
+        count = 0
+        myCount = 0
+        for e in exonAnnots:
+            if e.id == startExonID:
+                myExonAnnots.append(e)
+                myCount = count
+            count = count + 1
+        print myCount, count
+        l = range(myCount, num)
+        print l
+        for i in l:
+            print i
+            if i <= myCount:
+                exonAnnots.next()
+            else:
+                exonAnnot = exonAnnots.next()
+                myExonAnnots.append(exonAnnot)
+        '''
+        '''
+        print exonAnnots
+        exon = exonAnnots[2] # Is there a way to access one item in the exonAnnots list other than the for-loop?
+        print repr(exon)
+        
+        for index in range(myCount, num):
+        
+            myExonAnnots.append(exonAnnots[index])
+        # get all the translateable exons 
+        transExonAnnots = []
+        count = 0
+        for e in myExonAnnots:
+            if e.id != endExonID:
+                transExonAnnots.append(e)
+                count = count + 1
+        print count
+        endExonAnnot = myExonAnnots[count-1]
+        transExonAnnots.append(endExonAnnot)
+        return transExonAnnots
+        '''
     #def getSupportingFeatures(self):
 
     #def getAnalysis(self):
@@ -536,12 +661,24 @@ if __name__ == '__main__': # example code
     transcriptAnnots = exon.get_all_transcripts()
     for t in transcriptAnnots:
         print t.id, t.seq_region_start, len(t.sequence)
-
+    
     transcriptAdaptor = coreDBAdaptor.get_adaptor('transcript')
     transcript = transcriptAdaptor[1]
-    exonAnnots = transcript.get_all_exons()
-    for e in exonAnnots:
-        print e.id, e.sequence
+    #transcript = transcriptAdaptor[15960]
+    #transcript = transcriptAdaptor[15121]
+    #exonAnnots = transcript.get_all_exons()
+    #for e in exonAnnots:
+    #    print e.id, len(e.sequence), e.sequence
+    #splicedSeq = transcript.get_spliced_seq()
+    #print len(splicedSeq), str(splicedSeq)
+
+    fiveUtr = transcript.get_five_utr()
+    if fiveUtr is not None:
+        print repr(fiveUtr.sequence), len(fiveUtr.sequence), str(fiveUtr.sequence)
+    
+    threeUtr = transcript.get_three_utr()
+    if threeUtr is not None:
+        print repr(threeUtr.sequence), len(threeUtr.sequence), str(threeUtr.sequence)
     
     exon = exonAdaptor[95160]
     exon.get_stable_id()
