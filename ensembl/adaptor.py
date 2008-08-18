@@ -177,7 +177,7 @@ class Registry(object):
         'Obtain an adaptor to the given type of database'
 
         db_adaptor = self.db_adaptor[db_type]
-        return db_adaptor(self, db_species, db_version)
+        return db_adaptor(self.conn, db_species, db_version)
 
 
 class MetaCoordAdaptor(sqlgraph.SQLTable):
@@ -250,10 +250,8 @@ class PredictionTranscriptAdaptor(FeatureAdaptor):
         prediction_transcript 0 :
         start: 48848
         seq_region_start: 48849
-
         '''
-    
-        
+            
         t = self.select('where display_label = %s', (display_label))
         prediction_transcripts = []
         for row in t:
@@ -264,6 +262,7 @@ class PredictionTranscriptAdaptor(FeatureAdaptor):
 
 class ExonAdaptor(FeatureAdaptor):
     '''Provides access to the exon table in an ensembl core database
+
     >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
     >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
     >>> exonAdaptor = coreDBAdaptor.get_adaptor('exon')
@@ -297,7 +296,6 @@ class ExonAdaptor(FeatureAdaptor):
     18 226034 chr1 44693 -44799 1 -1 ENSE00001429474
     281015 226034 chr1 52878 -53750 1 -1 ENSE00001481223
     5176 226034 chr1 58954 -59871 1 -1 ENSE00001248806
-
     '''
 
     def fetch_by_stable_id(self, exonStableID):
@@ -348,9 +346,7 @@ class TranscriptAdaptor(FeatureAdaptor):
     ...     print t.id, t.get_stable_id()
     ...
     15960 ENST00000382841
-
     '''
-
    
     def fetch_by_stable_id(self, transcriptStableID):
         
@@ -377,7 +373,6 @@ class GeneAdaptor(FeatureAdaptor):
     ...     print g.id, g.get_stable_id()
     ...
     8946 ENSG00000120645
-
     '''
 
 
@@ -441,10 +436,10 @@ class CoreDBAdaptor(object):
     MapperClass = {'prediction_transcript_prediction_exon': PtranscriptToPexon, 'gene_transcript': GeneToTranscript, 'transcript_translation': TranscriptToTranslation}
     Genomes = {'homo_sapiens_47_36i': 'HUMAN.hg18'}
 
-    def __init__(self, registry, dbSpecies, dbVersion):
+    def __init__(self, conn, dbSpecies, dbVersion):
         
         # instance attributes
-        self.conn = registry.conn
+        self.conn = conn
         self.dbSpecies = dbSpecies
         self.dbVersion = dbVersion
         self.dbName = self.dbSpecies+'_'+CoreDBAdaptor.dbType+'_'+self.dbVersion
@@ -452,6 +447,7 @@ class CoreDBAdaptor(object):
     
     def get_adaptor(self, tbname): 
         'Obtain a particular table adaptor of a core database table'
+
         name = self.dbName + '.' + tbname
         # Get the tbobj from pygr.Data
         resource_id = 'Bio.Annotation.Ensembl.' + name + '.' + 'sqltable'
@@ -469,8 +465,8 @@ class CoreDBAdaptor(object):
 
 
     def _create_featureMapper(self, sourceTBName, targetTBName):
+
         tableResourceID = 'Bio.Annotation.Ensembl'
-    
         sourceResID = tableResourceID + '.' + self.dbName + '.' + sourceTBName + '.' + 'sqltable'
         #print 'sourceResID: ', sourceResID
         targetResID = tableResourceID + '.' + self.dbName + '.' + targetTBName + '.' + 'sqltable'
@@ -696,7 +692,6 @@ chromosome, chrName, start, end, strand) or a particular contig region (defined 
         if strand == -1:
             slice = -slice
         return slice
-
     
 def _test():
     import doctest

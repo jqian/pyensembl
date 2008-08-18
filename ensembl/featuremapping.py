@@ -129,10 +129,6 @@ class TranscriptToTranslation(object):
     def __invert__(self):
         return self.inverseDB
 
-
-
-
-
 class PtranscriptToPexonInv(object):
     'inverse of a PtranscriptToPexon mapping: an Ensembl prediction_exon obj -> an Ensembl prediction_transcript obj'
 
