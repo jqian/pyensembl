@@ -525,6 +525,7 @@ class CoreDBAdaptor(object):
         '''Obtain a feature -> feature graph object and its associated sourceAnnotationDB and targetAnnotationDB'''
 
         graphName = sourceTBName + '_' + targetTBName
+        #graphName = targetTBName + '_' + targetTBName
         graphID = 'Bio.Annotation.Ensembl.' + self.dbName + '.' + graphName
         graph = _get_resource(graphID)
         if graph == None:
@@ -535,6 +536,26 @@ class CoreDBAdaptor(object):
             targetDB = graphData[2]
             
             #_save_graph(graphID, graph, sourceDB, targetDB)
+        
+        else:
+            tableResourceID = 'Bio.Annotation.Ensembl'
+    
+            sourceResID = tableResourceID + '.' + self.dbName + '.' + sourceTBName + '.' + 'sqltable'
+            #print 'sourceResID: ', sourceResID
+            targetResID = tableResourceID + '.' + self.dbName + '.' + targetTBName + '.' + 'sqltable'
+            #print 'targetResID: ', targetResID
+            sourceTB = _get_resource(sourceResID)
+            if sourceTB == None:
+                sourceTB = self.get_adaptor(sourceTBName)
+                _save_resource(sourceResID, sourceTB, 'sqltable')
+            targetTB = _get_resource(targetResID)
+            if targetTB == None:
+                targetTB = self.get_adaptor(targetTBName)
+                _save_resource(targetResID, targetTB, 'sqltable')
+            sourceAnnoDB = self._get_annotationDB(sourceTBName, sourceTB)
+            targetAnnoDB = self._get_annotationDB(targetTBName, targetTB)
+            graphData = [graph, sourceAnnoDB, targetAnnoDB]
+         
         return graphData
             
 
@@ -699,7 +720,7 @@ def _test():
     
 if __name__ == '__main__': # example code
     
-    _test()
+    #_test()
     '''
     serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
     coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')

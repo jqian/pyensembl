@@ -1,4 +1,4 @@
-from ensembl.adaptor import *
+import ensembl.adaptor
 from ensembl.seqregion import *
 from seqregion import EnsemblRow
 
@@ -52,7 +52,7 @@ class PeptideArchive(BaseModel):
     '''
     An interface to a row record in the peptide_archive table
     
-    >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+    >>> serverRegistry = ensembl.adaptor.get_registry(host='ensembldb.ensembl.org', user='anonymous')
     >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
     >>> pepAdaptor = coreDBAdaptor.get_adaptor('peptide_archive')
     >>> peptide = pepAdaptor[100]
@@ -61,11 +61,14 @@ class PeptideArchive(BaseModel):
     '''
 
 class Feature(BaseModel, EnsemblRow):
-    
+    '''
+    A generic interface to a record in an ensembl feature table.  An ensembl feature table contains columns: seq_region_id, seq_region_start, seq_region_end and seq_region_strand
+    '''
+
     def get_sequence(self, flankingSeq=None):
         '''Obtain a sequence object of the given feature, including its flanking region on both sides if required.  Note: if the feature locates on the reverse strand, the sequence returned will be from the reverse strand.
 
-        >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+        >>> serverRegistry = ensembl.adaptor.get_registry(host='ensembldb.ensembl.org', user='anonymous')
         >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
         >>> exonAdaptor = coreDBAdaptor.get_adaptor('exon')
         >>> exon = exonAdaptor[73777]
@@ -107,7 +110,7 @@ class PredictionExon(Feature):
     '''
     An interface to a row record in the prediction_exon table
 
-    >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+    >>> serverRegistry = ensembl.adaptor.get_registry(host='ensembldb.ensembl.org', user='anonymous')
     >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
     >>> pexonAdaptor = coreDBAdaptor.get_adaptor('prediction_exon')
     >>> pExon = pexonAdaptor[10]
@@ -122,7 +125,7 @@ class PredictionExon(Feature):
     def get_prediction_transcript(self):
         '''Obtain the prediction transcript the given prediction exon belongs to
 
-        >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+        >>> serverRegistry = ensembl.adaptor.get_registry(host='ensembldb.ensembl.org', user='anonymous')
         >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
         >>> pexonAdaptor = coreDBAdaptor.get_adaptor('prediction_exon')
         >>> pExon = pexonAdaptor[10]
@@ -141,7 +144,7 @@ class PredictionTranscript(Feature):
     '''
     An interface to a prediction_transcript record in any ensembl core database
     
-    >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+    >>> serverRegistry = ensembl.adaptor.get_registry(host='ensembldb.ensembl.org', user='anonymous')
     >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
     >>> ptranscriptAdaptor = coreDBAdaptor.get_adaptor('prediction_transcript')
     >>> ptranscript = ptranscriptAdaptor[150]
@@ -154,7 +157,7 @@ class PredictionTranscript(Feature):
     def get_prediction_exons(self):
         '''Obtain all the prediction exons for this prediction transcript
 
-        >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+        >>> serverRegistry = ensembl.adaptor.get_registry(host='ensembldb.ensembl.org', user='anonymous')
         >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
         >>> ptranscriptAdaptor = coreDBAdaptor.get_adaptor('prediction_transcript')
         >>> ptranscript = ptranscriptAdaptor[150]
@@ -242,7 +245,7 @@ class Exon(StableObj, Feature):
     '''An interface to an exon record in the exon table in an ensembl core 
     database
 
-    >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+    >>> serverRegistry = ensembl.adaptor.get_registry(host='ensembldb.ensembl.org', user='anonymous')
     >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
     >>> exonAdaptor = coreDBAdaptor.get_adaptor('exon')
     >>> exon = exonAdaptor[95160]
@@ -259,7 +262,7 @@ class Exon(StableObj, Feature):
     def get_all_transcripts(self):
         '''Obtain all the transcript annotations this exon belongs to
 
-        >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+        >>> serverRegistry = ensembl.adaptor.get_registry(host='ensembldb.ensembl.org', user='anonymous')
         >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
         >>> exonAdaptor = coreDBAdaptor.get_adaptor('exon')
         >>> exon = exonAdaptor[28696]
@@ -328,7 +331,7 @@ def _get_featureGraph(sourceTBName, targetTBName, name):
 class Transcript(StableObj, Feature):
     '''An interface to a transcript record in the transcript table in an ensembl core database
 
-    >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+    >>> serverRegistry = ensembl.adaptor.get_registry(host='ensembldb.ensembl.org', user='anonymous')
     >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
     >>> transcriptAdaptor = coreDBAdaptor.get_adaptor('transcript')
     >>> transcript = transcriptAdaptor[15960]
@@ -346,7 +349,7 @@ class Transcript(StableObj, Feature):
     def get_all_exons(self):
         '''obtain all the exon annotations of this transcript
 
-        >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+        >>> serverRegistry = ensembl.adaptor.get_registry(host='ensembldb.ensembl.org', user='anonymous')
         >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
         >>> transcriptAdaptor = coreDBAdaptor.get_adaptor('transcript')
         >>> transcript = transcriptAdaptor[15960]
@@ -398,7 +401,7 @@ class Transcript(StableObj, Feature):
     def get_spliced_seq(self):
         '''Obtain the spliced sequence of the transcript
         
-        >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+        >>> serverRegistry = ensembl.adaptor.get_registry(host='ensembldb.ensembl.org', user='anonymous')
         >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
         >>> transcriptAdaptor = coreDBAdaptor.get_adaptor('transcript')
         >>> transcript = transcriptAdaptor[1]
@@ -417,7 +420,7 @@ class Transcript(StableObj, Feature):
     def get_five_utr(self): 
         '''Obtain the five-prime untranslated region of the transcript.  Return None, if the transcript is not translateable or the translation starts at the beginning of the start_exon.
 
-        >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+        >>> serverRegistry = ensembl.adaptor.get_registry(host='ensembldb.ensembl.org', user='anonymous')
         >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
         >>> transcriptAdaptor = coreDBAdaptor.get_adaptor('transcript')
         >>> transcript = transcriptAdaptor[1]
@@ -461,7 +464,7 @@ class Transcript(StableObj, Feature):
     def get_three_utr(self):
         '''Obtain the three-prime untranslated region of the transcript.  ReturnNone, if the transcript is not translateable or the translation ends in the end of the end_exon.
 
-        >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+        >>> serverRegistry = ensembl.adaptor.get_registry(host='ensembldb.ensembl.org', user='anonymous')
         >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
         >>> transcriptAdaptor = coreDBAdaptor.get_adaptor('transcript')
         >>> transcript = transcriptAdaptor[1]
@@ -508,7 +511,7 @@ class Transcript(StableObj, Feature):
     def get_gene(self):
         '''obtain its gene
         
-        >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+        >>> serverRegistry = ensembl.adaptor.get_registry(host='ensembldb.ensembl.org', user='anonymous')
         >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
         >>> transcriptAdaptor = coreDBAdaptor.get_adaptor('transcript')
         >>> transcript = transcriptAdaptor[15960]
@@ -523,7 +526,7 @@ class Transcript(StableObj, Feature):
 
     def get_translation(self):
         '''Obtain its translation.  Return None if no translation found for this transcript.
-        >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+        >>> serverRegistry = ensembl.adaptor.get_registry(host='ensembldb.ensembl.org', user='anonymous')
         >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
         >>> transcriptAdaptor = coreDBAdaptor.get_adaptor('transcript')
         >>> transcript = transcriptAdaptor[15960]
@@ -601,7 +604,7 @@ class Gene(StableObj, Feature):
 
     def get_transcripts(self):
         '''return transcripts if available, otherwise empty list
-        >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+        >>> serverRegistry = ensembl.adaptor.get_registry(host='ensembldb.ensembl.org', user='anonymous')
         >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
         >>> geneAdaptor = coreDBAdaptor.get_adaptor('gene')
         >>> gene = geneAdaptor[8946]
@@ -636,7 +639,7 @@ class Translation(StableObj, BaseModel):
     def get_transcript(self):
         '''obtain its transcript
         
-        >>> serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+        >>> serverRegistry = ensembl.adaptor.get_registry(host='ensembldb.ensembl.org', user='anonymous')
         >>> coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
         >>> translationAdaptor = coreDBAdaptor.get_adaptor('translation')
         >>> translation = translationAdaptor[15121]
@@ -665,9 +668,9 @@ def _test():
 
 if __name__ == '__main__': # example code
     
-    _test()
+    #_test()
     '''
-    serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
+    serverRegistry = ensembl.adaptor.get_registry(host='ensembldb.ensembl.org', user='anonymous')
     coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
     
     pexonAdaptor = coreDBAdaptor.get_adaptor('prediction_exon')
