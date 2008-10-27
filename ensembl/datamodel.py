@@ -64,6 +64,23 @@ class Feature(BaseModel, EnsemblRow):
     '''
     A generic interface to a record in an ensembl feature table.  An ensembl feature table contains columns: seq_region_id, seq_region_start, seq_region_end and seq_region_strand
     '''
+    def _get_annotation(self):
+        '''Obtain an annotation object of the given feature'''
+        
+        from ensembl.adaptor import _get_db_parameters
+        dbParams = _get_db_parameters(self.db.name)
+        dbSpecies = dbParams[0]
+        dbType = dbParams[1]
+        dbVersion = dbParams[2]
+        from ensembl.adaptor import _get_DB_adaptor
+        dbAdaptor = _get_DB_adaptor(dbSpecies, dbType, dbVersion)
+        tbName = self.db.name.split('.')[1]
+        #myAdaptor = dbAdaptor.get_adaptor(tbName)
+        myAdaptor = self.db
+        myAnnoDB = dbAdaptor._get_annotationDB(tbName, myAdaptor)
+        myAnnot = myAnnoDB[self.id]
+        return myAnnot
+        
 
     def get_sequence(self, flankingSeq=None):
         '''Obtain a sequence object of the given feature, including its flanking region on both sides if required.  Note: if the feature locates on the reverse strand, the sequence returned will be from the reverse strand.
@@ -294,12 +311,21 @@ class Exon(StableObj, Feature):
         5930 2483863 186858
         5945 2428398 248979
         '''
-        
+        '''
         exonTranscriptGraphData = _get_featureGraph('exon', 'transcript', self.db.name)
+        #exonTranscriptGraphData = _create_featureGraph('exon', 'transcript', self.db.name)
         exonTranscriptGraph = exonTranscriptGraphData[0]
         exonAnnoDB = exonTranscriptGraphData[1]
-        exonAnnot = exonAnnoDB[self.id]
-        transcriptAnnots = exonTranscriptGraph[exonAnnot]
+        '''
+        exonAnnot = self._get_annotation()
+        try:
+           transcriptAnnots = exonAnnot.transcripts 
+        except AttributeError:
+           exonTranscriptGraphData = _get_featureGraph('exon', 'transcript', self.db.name, 'ManyToMany')
+           exonTranscriptGraph = exonTranscriptGraphData[0]
+           exonAnnoDB = exonTranscriptGraphData[1]
+           transcriptAnnoDB = exonTranscriptGraphData[2]
+           transcriptAnnots = exonTranscriptGraph[exonAnnot]
 
         return transcriptAnnots
 
@@ -315,7 +341,18 @@ def _get_featureMapper(sourceTBName, targetTBName, name):
     mapper = dbAdaptor._fetch_featureMapper(sourceTBName, targetTBName)
     return mapper
 
-def _get_featureGraph(sourceTBName, targetTBName, name):
+def _get_featureGraph(sourceTBName, targetTBName, name, relation):
+
+
+    if (relation == 'OneToOne'):
+        sourceAttr = targetTBName
+        targetAttr = sourceTBName
+    if (relation == 'OneToMany'):
+        sourceAttr = targetTBName + 's'
+        targetAttr = sourceTBName
+    if (relation == 'ManyToMany'):
+        sourceAttr = targetTBName + 's'
+        targetAttr = sourceTBName + 's'
 
     from ensembl.adaptor import _get_db_parameters
     dbParams = _get_db_parameters(name)
@@ -324,9 +361,18 @@ def _get_featureGraph(sourceTBName, targetTBName, name):
     dbVersion = dbParams[2]
     from ensembl.adaptor import _get_DB_adaptor
     dbAdaptor = _get_DB_adaptor(dbSpecies, dbType, dbVersion)
-    graphData = dbAdaptor._fetch_featureGraph(sourceTBName, targetTBName)
+    #graphData = dbAdaptor._fetch_featureGraph(sourceTBName, targetTBName)
+    graphData = dbAdaptor._create_featureGraph(sourceTBName, targetTBName)
+
+    graph = graphData[0]
+    sourceAnnoDB = graphData[1]
+    targetAnnoDB = graphData[2]
+    dbAdaptor._save_featureGraph(graph, sourceTBName, sourceAnnoDB, targetTBName, targetAnnoDB, relation, sourceAttr, targetAttr)
+           
     return graphData
     
+
+
 
 class Transcript(StableObj, Feature):
     '''An interface to a transcript record in the transcript table in an ensembl core database
@@ -390,6 +436,8 @@ class Transcript(StableObj, Feature):
         13 92 TGCTCCATGGGGGGACGGCTCCACCCAGCCTGCGCCACTGTGTTCTTAAGAGGCTTCCAGAGAAAACGGCACACCAATCAATAAAGAACTGA
         '''
        
+        '''
+        # one way of implementing it
         exonTranscriptGraphData = _get_featureGraph('exon', 'transcript', self.db.name)
         exonTranscriptGraph = exonTranscriptGraphData[0]
         transcriptAnnoDB = exonTranscriptGraphData[2]
@@ -397,6 +445,25 @@ class Transcript(StableObj, Feature):
         exonAnnots = (~exonTranscriptGraph)[transcriptAnnot]
 
         return exonAnnots
+        '''
+        
+        # Alternative way to implement it
+        # create a transcript annotation DB
+        # create a coreDBAdaptor object
+        
+        transcriptAnnot = self._get_annotation()
+        try:
+           exonAnnots = transcriptAnnot.exons 
+        except AttributeError:
+           exonTranscriptGraphData = _get_featureGraph('exon', 'transcript', self.db.name, 'ManyToMany')# save it!!!
+           exonTranscriptGraph = exonTranscriptGraphData[0]
+           exonAnnoDB = exonTranscriptGraphData[1]
+           transcriptAnnoDB = exonTranscriptGraphData[2]
+           exonAnnots = (~exonTranscriptGraph)[transcriptAnnot]
+
+           
+        return exonAnnots
+          
 
     def get_spliced_seq(self):
         '''Obtain the spliced sequence of the transcript

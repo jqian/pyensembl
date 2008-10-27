@@ -436,6 +436,14 @@ class CoreDBAdaptor(object):
     MapperClass = {'prediction_transcript_prediction_exon': PtranscriptToPexon, 'gene_transcript': GeneToTranscript, 'transcript_translation': TranscriptToTranslation}
     Genomes = {'homo_sapiens_47_36i': 'HUMAN.hg18'}
 
+    import pygr.Data
+    RelationClass = {'ManyToMany': pygr.Data.ManyToManyRelation}
+    #GraphClass = {'homo_sapiens_core_47_36i.exon_transcript': pygr.Data.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i.exon_transcript}
+    #SchemaClass = {'homo_sapiens_core_47_36i.exon_transcript': pygr.Data.schema.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i.exon_transcript}
+
+    GraphClass = {'homo_sapiens_core_47_36i.exon_transcript': pygr.Data.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i}
+    SchemaClass = {'homo_sapiens_core_47_36i.exon_transcript': pygr.Data.schema.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i}
+
     def __init__(self, conn, dbSpecies, dbVersion):
         
         # instance attributes
@@ -521,14 +529,35 @@ class CoreDBAdaptor(object):
         graphData = [myGraph, sourceAnnoDB, targetAnnoDB]
         return graphData
 
+    
+    def _save_featureGraph(self, graph, sourceTBName, sourceAnnoDB, targetTBName, targetAnnoDB, relation, sourceAttr, targetAttr):
+        '''Save the graph to pygr.Data'''
+
+        graphKey = self.dbName + '.' + sourceTBName + '_' + targetTBName
+        relationKey = relation 
+        doc = 'ensembl annotation graph ' + sourceTBName + ' -> ' + targetTBName + ' (' + self.dbName + ')'
+        graph.__doc__ = doc
+        import pygr.Data
+        graphClass = self.GraphClass[graphKey]
+        schemaClass = self.SchemaClass[graphKey]
+        relationClass = self.RelationClass[relationKey]
+        schemaValue = relationClass(sourceAnnoDB, targetAnnoDB, bindAttrs=(sourceAttr, targetAttr))
+        attribute = sourceTBName + '_' + targetTBName
+        graphClass.__setattr__(attribute, graph)
+        schemaClass.__setattr__(attribute, schemaValue)
+        pygr.Data.save()
+
+        '''
     def _fetch_featureGraph(self, sourceTBName, targetTBName):
-        '''Obtain a feature -> feature graph object and its associated sourceAnnotationDB and targetAnnotationDB'''
+        'Obtain a feature -> feature graph object and its associated sourceAnnotationDB and targetAnnotationDB'
 
         graphName = sourceTBName + '_' + targetTBName
         #graphName = targetTBName + '_' + targetTBName
         graphID = 'Bio.Annotation.Ensembl.' + self.dbName + '.' + graphName
+        #print graphID
         graph = _get_resource(graphID)
         if graph == None:
+            # print 'None'
             # create a SQLGraph object
             graphData = self._create_featureGraph(sourceTBName, targetTBName)
             graph = graphData[0]
@@ -538,6 +567,7 @@ class CoreDBAdaptor(object):
             #_save_graph(graphID, graph, sourceDB, targetDB)
         
         else:
+            print 'graph already exists'
             tableResourceID = 'Bio.Annotation.Ensembl'
     
             sourceResID = tableResourceID + '.' + self.dbName + '.' + sourceTBName + '.' + 'sqltable'
@@ -557,7 +587,7 @@ class CoreDBAdaptor(object):
             graphData = [graph, sourceAnnoDB, targetAnnoDB]
          
         return graphData
-            
+        '''            
 
     def _create_seqregion(self):
         
@@ -567,7 +597,7 @@ class CoreDBAdaptor(object):
         #print genomeKey
         genomeName = CoreDBAdaptor.Genomes[genomeKey]
         genomeResourceID = 'Bio.Seq.Genome.' + genomeName
-        #print genomeResourceID
+        print genomeResourceID
         genome = _get_resource(genomeResourceID)
         #chr1seq = genome['chr1']
         #print repr(chr1seq)
