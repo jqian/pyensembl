@@ -391,10 +391,27 @@ class SequenceDB(object, UserDict.DictMixin):
             return self._seqtype
         except AttributeError:
             pass
+<<<<<<< HEAD:pygr/seqdb.py
         for seqID in self:
             seq = self[seqID] # get the 1st sequence
             self._seqtype = guess_seqtype(str(seq[:100]))
             break
+=======
+        try:
+            ifile = file(self.filepath) # read one sequence to check its type
+            try: # this only works for FASTA file...
+                id,title,seq = read_fasta_one_line(ifile) 
+                self._seqtype = guess_seqtype(seq) # record protein vs. DNA...
+                return self._seqtype
+            finally:
+                ifile.close()
+        except (IOError,AttributeError):
+            pass
+        for seqID in self: # get an iterator
+            seq = self[seqID] # get the 1st sequence
+            self._seqtype = guess_seqtype(str(seq[:100]))
+            return self._seqtype
+>>>>>>> b98486652d08eb33e6b6ab62fb041ffa380a2fae:pygr/seqdb.py
     _cache_max=10000
     def cacheHint(self, ivalDict, owner):
         'save a cache hint dict of {id:(start,stop)}; return reference owner'
@@ -463,6 +480,12 @@ class SequenceDB(object, UserDict.DictMixin):
         return key in self.seqInfoDict
     def __repr__(self):
         return "<%s '%s'>" % (self.__class__.__name__, self.filepath)
+<<<<<<< HEAD:pygr/seqdb.py
+=======
+    def clear_cache(self):
+        'empty the cache'
+        self._weakValueDict.clear()
+>>>>>>> b98486652d08eb33e6b6ab62fb041ffa380a2fae:pygr/seqdb.py
 
     # these methods should not be implemented for read-only database.
     clear = setdefault = pop = popitem = copy = update = \
@@ -974,6 +997,12 @@ store the data in the associated disk file.  To avoid this, we
 have automatically called AnnotationDB.sliceDB.close() to write the data
 for you, when the AnnotationDB was deleted.'''
 
+<<<<<<< HEAD:pygr/seqdb.py
+=======
+    def clear_cache(self):
+        'empty the cache'
+        self._weakValueDict.clear()
+>>>>>>> b98486652d08eb33e6b6ab62fb041ffa380a2fae:pygr/seqdb.py
     # not clear what this should do for AnnotationDB
     def copy(self):
         raise NotImplementedError, "nonsensical in AnnotationDB"
