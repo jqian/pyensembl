@@ -1,4 +1,5 @@
-
+import os,sys
+from weakref import WeakValueDictionary
 
 def ClassicUnpickler(cls, state):
     'standard python unpickling behavior'
@@ -15,16 +16,16 @@ ClassicUnpickler.__safe_for_unpickling__ = 1
 
 def filename_unpickler(cls,path,kwargs):
     'raise IOError if path not readable'
-    try:
-        file(path).close() # WILL RAISE IOError IF path NOT ACCESSIBLE, READABLE
-    except IOError:
-        try: # CONVERT TO ABSOLUTE PATH BASED ON SAVED DIRECTORY PATH
-            import os
-            path = os.path.normpath(os.path.join(kwargs['curdir'],path))
-            file(path).close() # WILL RAISE IOError IF path NOT ACCESSIBLE, READABLE
+    if not os.path.exists(path):
+        try:# CONVERT TO ABSOLUTE PATH BASED ON SAVED DIRECTORY PATH
+            path = os.path.normpath(os.path.join(kwargs['curdir'], path))
+            if not os.path.exists(path):
+                raise IOError('unable to open file %s' % path)
         except KeyError:
             raise IOError('unable to open file %s' % path)
-    return cls(path)
+    if cls is SourceFileName:
+        return SourceFileName(path)
+    raise ValueError('Attempt to unpickle untrusted class ' + cls.__name__)
 filename_unpickler.__safe_for_unpickling__ = 1
 
 class SourceFileName(str):
@@ -32,7 +33,6 @@ class SourceFileName(str):
 if filepath not readable, and complain if the user tries
 to pickle a relative path'''
     def __reduce__(self):
-        import os,sys
         if not os.path.isabs(str(self)):
             print >>sys.stderr,'''
 WARNING: You are trying to pickle an object that has a local
@@ -51,16 +51,34 @@ or pickle!''' % str(self)
 
 def file_dirpath(filename):
     'return path to directory containing filename'
-    import os
     dirname = os.path.dirname(filename)
     if dirname=='':
         return os.curdir
     else:
         return dirname
 
+def get_valid_path(*pathTuples):
+    '''for each tuple in args, build path using os.path.join(),
+    and return the first path that actually exists, or else None.'''
+    for t in pathTuples:
+        mypath = os.path.join(*t)
+        if os.path.exists(mypath):
+            return mypath
+
+def search_dirs_for_file(filepath, pathlist=()):
+    'return successful path based on trying pathlist locations'
+    if os.path.exists(filepath):
+        return filepath
+    b = os.path.basename(filepath)
+    for s in pathlist: # NOW TRY EACH DIRECTORY IN pathlist
+        mypath = os.path.join(s,b)
+        if os.path.exists(mypath):
+            return mypath
+    raise IOError('unable to open %s from any location in %s'
+                  %(filepath,pathlist))
+
 def default_tmp_path():
     'find out default location for temp files, e.g. /tmp'
-    import os
     for tmp in ['/tmp','/usr/tmp']: # RETURN THE 1ST WRITABLE LOCATION
         if os.access(tmp,os.W_OK):
             return tmp
@@ -68,10 +86,19 @@ def default_tmp_path():
 
 def report_exception():
     'print string message from exception to stderr'
-    import sys,traceback
+    import traceback
     info = sys.exc_info()[:2]
     l = traceback.format_exception_only(info[0],info[1])
     print >>sys.stderr,'Warning: caught %s\nContinuing...' % l[0]
+
+def standard_invert(self):
+    'keep a reference to an inverse mapping, using self._inverseClass'
+    try:
+        return self._inverse
+    except AttributeError:
+        self._inverse = self._inverseClass(self)
+        return self._inverse
+
 
 def standard_getstate(self):
     'get dict of attributes to save, using self._pickleAttrs dictionary'
@@ -114,7 +141,6 @@ def standard_setstate(self,state):
     'apply dict of saved state by passing as kwargs to constructor'
     if isinstance(state,list):  # GET RID OF THIS BACKWARDS-COMPATIBILITY CODE!
         self.__init__(*state)
-        import sys
         print >>sys.stderr,'WARNING: obsolete list pickle %s. Update by resaving!' \
               % repr(self)
     else:
@@ -162,7 +188,7 @@ def shadow_reducer(self):
 
 
 def get_bound_subclass(obj, classattr='__class__', subname=None, factories=(),
-                       attrDict=None):
+                       attrDict=None, subclassArgs=None):
     'create a subclass specifically for obj to bind its shadow attributes'
     targetClass = getattr(obj,classattr)
     try:
@@ -187,14 +213,25 @@ def get_bound_subclass(obj, classattr='__class__', subname=None, factories=(),
     except AttributeError: # no subclass initializer, so nothing to do
         pass
     else: # run the subclass initializer
-        subclass_init()
+        if subclassArgs is None:
+            subclassArgs = {}
+        subclass_init(**subclassArgs)
     shadowClass.__name__ = targetClass.__name__ + '_' + subname
     setattr(obj,classattr,shadowClass) # SHADOW CLASS REPLACES ORIGINAL
     return shadowClass
 
-def methodFactory(methodList,methodStr,localDict):
+def method_not_implemented(*args,**kwargs):
+    raise NotImplementedError
+def read_only_error(*args, **kwargs):
+    raise NotImplementedError("read only dict")
+
+def methodFactory(methodList, methodStr, localDict):
+    'save a method or exec expression for each name in methodList'
     for methodName in methodList:
-        localDict[methodName]=eval(methodStr%methodName)
+        if callable(methodStr):
+            localDict[methodName] = methodStr
+        else:
+            localDict[methodName]=eval(methodStr%methodName)
 
 def open_shelve(filename,mode=None,writeback=False,allowReadOnly=False,
                 useHash=False,verbose=True):
@@ -226,7 +263,6 @@ def open_shelve(filename,mode=None,writeback=False,allowReadOnly=False,
         if allowReadOnly:
             d = dbfile.BtreeShelf(filename,'r',useHash=useHash)
             if verbose:
-                import sys
                 print >>sys.stderr,'''Opening shelve file %s in read-only mode because you lack
 write permissions to this file.  You will NOT be able to modify the contents
 of this shelve dictionary.  To avoid seeing this warning message, use verbose=False
@@ -249,10 +285,8 @@ def get_shelve_or_dict(filename=None,dictClass=None,**kwargs):
 class PathSaver(object):
     def __init__(self,origPath):
         self.origPath = origPath
-        import os
         self.origDir = os.getcwd()
     def __str__(self):
-        import os
         if os.access(self.origPath,os.R_OK):
             return self.origPath
         trypath = os.path.join(self.origDir,self.origPath)
@@ -279,8 +313,59 @@ class DBAttributeDescr(object):
 
 def get_env_or_cwd(envname):
     'get the specified environment value or path to current directory'
-    import os
     try:
         return os.environ[envname] # USER-SPECIFIED DIRECTORY
     except KeyError:
         return os.getcwd() # DEFAULT: SAVE IN CURRENT DIRECTORY
+
+
+class RecentValueDictionary(WeakValueDictionary):
+    '''keep the most recent n references in a WeakValueDictionary.
+    This combines the elegant cache behavior of a WeakValueDictionary
+    (only keep an item in cache if the user is still using it),
+    with the most common efficiency pattern: locality, i.e.
+    references to a given thing tend to cluster in time.  Note that
+    this works *even* if the user is not holding a reference to
+    the item between requests for it.  Our Most Recent queue will
+    hold a reference to it, keeping it in the WeakValueDictionary,
+    until it is bumped by more recent requests.
+    
+    n: the maximum number of objects to keep in the Most Recent queue,
+       default value 50.'''
+    def __init__(self, n=None):
+        WeakValueDictionary.__init__(self)
+        if n<1: # user doesn't want any Most Recent value queue
+            self.__class__ = WeakValueDictionary # revert to regular WVD
+            return
+        if isinstance(n, int):
+            self.n = n # size limit
+        else:
+            self.n = 50
+        self.i = 0 # counter
+        self._keepDict = {} # most recent queue
+    def __getitem__(self, k):
+        v = WeakValueDictionary.__getitem__(self, k) # KeyError if not found
+        self.keep_this(v)
+        return v
+    def keep_this(self, v):
+        'add v as our most recent ref; drop oldest ref if over size limit'
+        self._keepDict[v] = self.i # mark as most recent request
+        self.i += 1
+        if len(self._keepDict)>self.n: # delete oldest entry
+            l = self._keepDict.items()
+            imin = l[0][1]
+            vmin = l[0][0]
+            for v,i in l[1:]:
+                if i<imin:
+                    imin = i
+                    vmin = v
+            del self._keepDict[vmin]
+    def __setitem__(self, k, v):
+        WeakValueDictionary.__setitem__(self, k, v)
+        self.keep_this(v)
+    def clear(self):
+        self._keepDict.clear()
+        WeakValueDictionary.clear(self)
+
+
+            

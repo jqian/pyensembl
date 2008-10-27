@@ -1,4 +1,3 @@
-#from lpo import POMSANodeRef
 import sequence
 import nlmsa_utils
 
@@ -459,7 +458,6 @@ cdef class NLMSASlice:
     self.start=start
     self.stop=stop
     self.offset=offset # ALWAYS STORE offset IN POSITIVE ORIENTATION
-    self.deallocID= -1
     self.seq=seq
     try: # USE PYTHON METHOD TO DO QUERY
       id,ivals=ns.nlmsaLetters.doSlice(seq) # doSlice() RETURNS RAW INTERVALS
@@ -556,8 +554,6 @@ cdef class NLMSASlice:
     except AttributeError:
       cacheMax=0 # TURN OFF CACHING
     if cacheMax>0: # CONSTRUCT & SAVE DICT OF CACHE HINTS: COVERING INTERVALS
-      from seqdb import cacheProxyDict
-      self.deallocID,cacheProxy=cacheProxyDict()
       cacheDict={}
       try: # ADD A CACHE HINT FOR QUERY SEQ IVAL
         seqID=ns.nlmsaLetters.seqs.getSeqID(seq) # GET FULL-LENGTH ID
@@ -567,16 +563,16 @@ cdef class NLMSASlice:
       for i from 0 <= i < self.nseqBounds: # ONLY SAVE NON-LPO SEQUENCES
         if not ns.nlmsaLetters.seqlist.is_lpo(self.seqBounds[i].target_id):
           cacheDict[ns.nlmsaLetters.seqlist.getSeqID(self.seqBounds[i].target_id)]=(self.seqBounds[i].target_start,self.seqBounds[i].target_end)
-      saveCache(cacheProxy,cacheDict) # SAVE COVERING IVALS AS CACHE HINT
+
+      if cacheDict:
+        self.weakestLink = nlmsa_utils.SeqCacheOwner()
+        saveCache(cacheDict, self.weakestLink) # SAVE COVERING IVALS AS CACHE HINT
+
+  def __hash__(self):
+    return id(self)
 
   def __dealloc__(self):
     'remember: dealloc cannot call other methods!'
-    if self.deallocID>=0: # REMOVE OUR ENTRY FROM CACHE...
-      from seqdb import cacheProxyDict
-      try: # WORKAROUND weakref - PYREX PROBLEMS...
-        del cacheProxyDict[self.deallocID]
-      except KeyError:
-        pass
     if self.im:
       free(self.im)
       self.im=NULL
@@ -584,7 +580,19 @@ cdef class NLMSASlice:
       free(self.seqBounds)
       self.seqBounds=NULL
 
-
+  cdef object get_seq_interval(self, NLMSA nl, int targetID,
+                               int start, int stop):
+    'get seq interval and ensure cache owner keeps it in the cache'
+    if start<stop:
+      ival = nl.seqInterval(targetID, start, stop)
+    else:  # GET THE SEQUENCE OBJECT
+      ival = nl.seqlist.getSeq(targetID)
+    try: # tell owner to keep it in the cache
+      self.weakestLink.cache_reference(ival.pathForward)
+    except AttributeError:
+      pass
+    return ival
+  
   ########################################### ITERATOR METHODS
   def edges(self,mergeAll=False,**kwargs):
     'get list of tuples (srcIval,destIval,edge) aligned in this slice'
@@ -674,9 +682,9 @@ alignment intervals to an NLMSA after calling its build() method.''')
     i=self.findSeqBounds(id,seq.orientation) # FIND THIS id,ORIENTATION
     if i<0: # NOT FOUND!
       raise KeyError('seq not aligned in this interval')
-    return nl.seqInterval(self.seqBounds[i].target_id,
-                          self.seqBounds[i].target_start,
-                          self.seqBounds[i].target_end)
+    return self.get_seq_interval(nl, self.seqBounds[i].target_id,
+                                 self.seqBounds[i].target_start,
+                                 self.seqBounds[i].target_end)
 
   def generateSeqEnds(self):
     'get list of tuples (ival1,ival2,edge)'
@@ -689,9 +697,9 @@ alignment intervals to an NLMSA after calling its build() method.''')
         continue  # DON'T RETURN EDGES TO LPO
       #ival1=sequence.absoluteSlice(self.seq,self.seqBounds[i].start,
       #                             self.seqBounds[i].end)
-      ival2=nl.seqInterval(self.seqBounds[i].target_id,
-                           self.seqBounds[i].target_start,
-                           self.seqBounds[i].target_end)
+      ival2 = self.get_seq_interval(nl, self.seqBounds[i].target_id,
+                                    self.seqBounds[i].target_start,
+                                    self.seqBounds[i].target_end)
       #l.append((ival1,ival2,sequence.Seq2SeqEdge(self,ival2,ival1)))
       edge = self[ival2] # LET edge FIGURE OUT sourcePath FOR US
       l.append((edge.sourcePath,ival2,edge))
@@ -759,7 +767,8 @@ alignment intervals to an NLMSA after calling its build() method.''')
           targetEnd = targetEnd+maskEnd-end
           end = MaskEnd
       elif filterSeqs is not None: # CLIP TARGET SEQ INTERVAL
-        target=nl.seqInterval(self.im[i].target_id,targetStart,targetEnd)
+        target = self.get_seq_interval(nl, self.im[i].target_id,
+                                       targetStart, targetEnd)
         try:
           target=filterSeqs[target] # PERFORM CLIPPING
         except KeyError: # NO OVERLAP IN filterSeqs, SO SKIP
@@ -855,7 +864,7 @@ alignment intervals to an NLMSA after calling its build() method.''')
     nl=self.nlmsaSequence.nlmsaLetters # GET TOPLEVEL LETTERS OBJECT
     pIdentityMin0=pIdentityMin
     for targetID,l in seqIntervals.items(): # MERGE INTERVALS FOR EACH SEQ
-      seq=nl.seqlist.getSeq(targetID) # GET THE SEQUENCE OBJECT
+      seq = self.get_seq_interval(nl, targetID, 0, 0) # GET THE SEQUENCE OBJECT
       if pIdentityMin0 is not None and not isinstance(pIdentityMin0,types.FloatType):
         try:
           pIdentityMin=pIdentityMin0[seq] # LOOK UP DESIRED IDENTITY FOR THIS SEQ
@@ -916,7 +925,7 @@ alignment intervals to an NLMSA after calling its build() method.''')
       for seq in seqs: # CONSTRUCT INTERVAL BOUNDS LIST
         if isinstance(seq,int): # seqIntervals USES INT INDEX VALUES
           id=seq # SAVE THE ID
-          seq=nl.seqlist.getSeq(id) # GET THE SEQUENCE OBJECT
+          seq = self.get_seq_interval(nl, id, 0, 0) # GET THE SEQUENCE OBJECT
         else: # EXPECT USER TO SUPPLY ACTUAL SEQUENCE OBJECTS
           id=nl.seqs.getID(seq)
           seq=seq.pathForward # ENSURE WE HAVE TOP-LEVEL SEQ OBJECT
@@ -1698,9 +1707,9 @@ See the NLMSA documentation for more details.\n''')
     nseq0=len(self.seqDict) # GET TOTAL #SEQUENCES IN ALL DATABASES
     seqidmap=<SeqIDMap *>calloc(nseq0,sizeof(SeqIDMap)) # ALLOCATE ARRAY
     i=0
-    for pythonStr,j in self.seqDict.iteritemlen():
+    for pythonStr,seqInfo in self.seqDict.seqInfoDict.iteritems():
       seqidmap[i].id=strdup(pythonStr)
-      seqidmap[i].length=j
+      seqidmap[i].length = seqInfo.length
       i=i+1
     qsort(seqidmap,nseq0,sizeof(SeqIDMap),seqidmap_qsort_cmp) # SORT BY id
     ns=None
@@ -1822,9 +1831,9 @@ See the NLMSA documentation for more details.\n''')
     nseq0=len(self.seqDict) # GET TOTAL #SEQUENCES IN ALL DATABASES
     seqidmap=<SeqIDMap *>calloc(nseq0,sizeof(SeqIDMap)) # ALLOCATE ARRAY
     i=0
-    for pythonStr,j in self.seqDict.iteritemlen():
+    for pythonStr,seqInfo in self.seqDict.seqInfoDict.iteritems():
       seqidmap[i].id=strdup(pythonStr)
-      seqidmap[i].length=j
+      seqidmap[i].length = seqInfo.length
       i=i+1
     qsort(seqidmap,nseq0,sizeof(SeqIDMap),seqidmap_qsort_cmp) # SORT BY id
     ns_src = None
