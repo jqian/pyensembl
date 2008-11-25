@@ -6,23 +6,28 @@ from seqregion import EnsemblRow
 class BaseModel(sqlgraph.TupleO):
     '''A generic interface to an item object in a table in the ensembl database
     '''
-    
-    ''' 
-    #It's not working any more with the new pygr version!!! How to print out all the colunms of a table now?
-    def getAttributes(self):
-        'print out this row record'
-	#for k, v in self.rowobj._attrcol.iteritems():
-        #    print k, ' = ', self.rowobj.data[v]
+    def to_string(self):
+        'print out all the fields of a table record'
         for k, v in self._attrcol.iteritems():
-	    print k, ' = ', self.data[v]
-    '''
+            print k, '=', self._data[v], ' ', 
+
 
     # test
-    def getDBName(self):
-        return self.db.name
+    #def getDBName(self):
+    #    return self.db.name
 
-    def getDB(self):
-        return self.db
+    #def getDB(self):
+    #    return self.db
+
+class AnnotBaseModel(EnsemblRow):
+    '''A generic interface to an annotation object for an item in an ensembl table'''
+
+    def to_string(self):
+        'print out all the fields of a table record'
+        
+        for k, v in self._attrcol.iteritems():
+            print k, '=', self._data[v], ' ',
+
 
 class MetaCoord(BaseModel):
     '''An interface to a row in the meta_coord table'''

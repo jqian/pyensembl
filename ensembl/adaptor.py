@@ -1,3 +1,5 @@
+from pygr import seqdb
+from pygr import sqlgraph
 from ensembl.seqregion import *
 from ensembl.featuremapping import *
 from ensembl.datamodel import *
@@ -453,6 +455,14 @@ class CoreDBAdaptor(object):
         self.dbName = self.dbSpecies+'_'+CoreDBAdaptor.dbType+'_'+self.dbVersion
         
     
+    def get_feature(self, featureTB):
+        'Obtain an annotation DB for a core database table'
+        # get a SQLTable object
+        name = self.dbName + '.' + featureTB
+        tbAdaptor = sqlgraph.SQLTable(name, itemClass=AnnotBaseModel, serverInfo=self.conn)
+        annoDB = self._get_annotationDB(featureTB, tbAdaptor)
+        return annoDB
+            
     def get_adaptor(self, tbname): 
         'Obtain a particular table adaptor of a core database table'
 
@@ -591,13 +601,17 @@ class CoreDBAdaptor(object):
 
     def _create_seqregion(self):
         
-        srDBAdaptor = self.get_adaptor('seq_region')
-        dnaAdaptor = self.get_adaptor('dna')
+        #srDBAdaptor = self.get_adaptor('seq_region')
+        seq_region_tbname = self.dbName + '.seq_region'
+        srDBAdaptor = sqlgraph.SQLTable(seq_region_tbname, itemClass=sqlgraph.TupleO, serverInfo=self.conn)
+        dna_tbname = self.dbName + '.dna'
+        #dnaAdaptor = self.get_adaptor('dna')
+        dnaAdaptor = sqlgraph.SQLTable(dna_tbname, itemSliceClass=seqdb.SeqDBSlice, attrAlias=dict(seq='sequence'), itemClass=EnsemblDNA, serverInfo=self.conn)  
         genomeKey = self.dbSpecies + '_' + self.dbVersion
         #print genomeKey
         genomeName = CoreDBAdaptor.Genomes[genomeKey]
         genomeResourceID = 'Bio.Seq.Genome.' + genomeName
-        print genomeResourceID
+        #print genomeResourceID
         genome = _get_resource(genomeResourceID)
         #chr1seq = genome['chr1']
         #print repr(chr1seq)
@@ -751,13 +765,16 @@ def _test():
 if __name__ == '__main__': # example code
     
     #_test()
-    '''
+    
     serverRegistry = get_registry(host='ensembldb.ensembl.org', user='anonymous')
     coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
+    exonDB = coreDBAdaptor.get_feature('exon')
+    exon = exonDB[1]
+    print str(exon.sequence)
     #slice = coreDBAdaptor.fetch_slice_by_region('chromosome', '1', end=100000, strand = -1)
     #print slice.id
     #slice = coreDBAdaptor.fetch_slice_by_region('chromosome', '18', start=31129340, end=31190706)
-    
+    '''
     slice = coreDBAdaptor.fetch_slice_by_region('contig', 'AC116447.10.1.105108') 
     ptAdaptor = coreDBAdaptor.get_adaptor('prediction_transcript')
     pts = ptAdaptor.fetch_all_by_slice(slice)
