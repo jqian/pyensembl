@@ -1,9 +1,10 @@
+import MySQLdb
+import pygr.Data
 from pygr import seqdb
 from pygr import sqlgraph
 from ensembl.seqregion import *
 from ensembl.featuremapping import *
 from ensembl.datamodel import *
-import MySQLdb
 
 
 
@@ -436,15 +437,15 @@ class CoreDBAdaptor(object):
     TBAdaptorClass = {'meta_coord': MetaCoordAdaptor, 'dna': DnaAdaptor, 'exon': ExonAdaptor, 'gene': GeneAdaptor, 'transcript': TranscriptAdaptor, 'seq_region': SeqregionAdaptor, 'translation': TranslationAdaptor, 'gene_stable_id': GeneStableIdAdaptor, 'transcript_stable_id': TranscriptStableIdAdaptor, 'translation_stable_id': TranslationStableIdAdaptor, 'exon_stable_id': ExonStableIdAdaptor, 'xref': XrefAdaptor, 'prediction_transcript': PredictionTranscriptAdaptor, 'meta_coord': MetaCoordAdaptor, 'prediction_exon': PredictionExonAdaptor, 'peptide_archive': PeptideArchiveAdaptor, 'coord_system': CoordSystemAdaptor}
     RowClass = {'meta_coord': MetaCoord, 'dna': Dna, 'exon': Exon, 'gene': Gene, 'transcript': Transcript, 'seq_region': Seqregion, 'translation': Translation, 'gene_stable_id': GeneStableID, 'transcript_stable_id': TranscriptStableID, 'translation_stable_id': TranslationStableID, 'exon_stable_id': ExonStableID, 'xref': Xref, 'prediction_transcript': PredictionTranscript, 'prediction_exon': PredictionExon, 'peptide_archive': PeptideArchive, 'coord_system': CoordSystem}
     MapperClass = {'prediction_transcript_prediction_exon': PtranscriptToPexon, 'gene_transcript': GeneToTranscript, 'transcript_translation': TranscriptToTranslation}
-    Genomes = {'homo_sapiens_47_36i': 'HUMAN.hg18'}
+    #Genomes = {'homo_sapiens_47_36i': 'HUMAN.hg18'}
 
-    import pygr.Data
-    RelationClass = {'ManyToMany': pygr.Data.ManyToManyRelation}
+    #import pygr.Data
+    RelationClass = {'ManyToMany': pygr.Data.ManyToManyRelation, 'OneToMany': pygr.Data.OneToManyRelation, 'OneToOne': pygr.Data.OneToOneRelation}
     #GraphClass = {'homo_sapiens_core_47_36i.exon_transcript': pygr.Data.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i.exon_transcript}
     #SchemaClass = {'homo_sapiens_core_47_36i.exon_transcript': pygr.Data.schema.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i.exon_transcript}
 
-    GraphClass = {'homo_sapiens_core_47_36i.exon_transcript': pygr.Data.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i}
-    SchemaClass = {'homo_sapiens_core_47_36i.exon_transcript': pygr.Data.schema.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i}
+    #GraphClass = {'homo_sapiens_core_47_36i': pygr.Data.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i}
+    #SchemaClass = {'homo_sapiens_core_47_36i': pygr.Data.schema.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i}
 
     def __init__(self, conn, dbSpecies, dbVersion):
         
@@ -453,7 +454,9 @@ class CoreDBAdaptor(object):
         self.dbSpecies = dbSpecies
         self.dbVersion = dbVersion
         self.dbName = self.dbSpecies+'_'+CoreDBAdaptor.dbType+'_'+self.dbVersion
-        
+        self.genomeName = 'HUMAN.hg18'
+        self.graphClass = pygr.Data.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i
+        self.schemaClass = pygr.Data.schema.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i
     
     def get_feature(self, featureTB):
         'Obtain an annotation DB for a core database table'
@@ -515,6 +518,29 @@ class CoreDBAdaptor(object):
             #_save_mapper(mapperID, mapper, sourceTB, targetTB)
         return mapper
 
+    def _create_graph(self, source, target, relationTBName):
+
+        sourceTB = source.sliceDB
+        sourceTBName = sourceTB.name
+        sourceTBNameList = sourceTBName.split('.')
+        sourceName = sourceTBNameList[1]
+        targetTB = target.sliceDB
+        targetTBName = targetTB.name
+        targetTBNameList = targetTBName.split('.')
+        targetName = targetTBNameList[1]
+        spliceName = self.dbName + '.' + relationTBName
+        # test
+        #print spliceName
+        
+        sourceID = sourceName + '_id'
+        targetID = targetName + '_id'
+        # test
+        #print sourceID
+        #print targetID
+        # create a forward mapping from sourceDB -> targetDB
+        myGraph = sqlgraph.SQLGraph(spliceName,serverInfo=self.conn, sourceDB=source, targetDB=target, attrAlias=dict(source_id=sourceID, target_id=targetID))
+        return myGraph
+        
     def _create_featureGraph(self, sourceTBName, targetTBName):
         tableResourceID = 'Bio.Annotation.Ensembl'
     
@@ -538,7 +564,35 @@ class CoreDBAdaptor(object):
         myGraph = sqlgraph.SQLGraph(name,serverInfo=self.conn, sourceDB=sourceAnnoDB, targetDB=targetAnnoDB, attrAlias=dict(source_id='exon_id', target_id='transcript_id')) 
         graphData = [myGraph, sourceAnnoDB, targetAnnoDB]
         return graphData
+    
+    def _save_graph(self, graph, source, target, relation, sourceAttr, targetAttr):
+        '''Save the graph to pygr.Data'''
 
+        sourceTB = source.sliceDB
+        sourceTBName = sourceTB.name
+        sourceTBNameList = sourceTBName.split('.')
+        sourceName = sourceTBNameList[1]
+        targetTB = target.sliceDB
+        targetTBName = targetTB.name
+        targetTBNameList = targetTBName.split('.')
+        targetName = targetTBNameList[1]
+        graphKey = self.dbName + '.' + sourceName + '_' + targetName
+        relationKey = relation 
+        doc = 'ensembl annotation graph ' + sourceName + ' -> ' + targetName + ' (' + self.dbName + ')'
+        graph.__doc__ = doc
+        #import pygr.Data
+        #graphClass = self.GraphClass[graphKey]
+        graphClass = self.graphClass
+        #schemaClass = self.SchemaClass[graphKey]
+        schemaClass = self.schemaClass
+        relationClass = self.RelationClass[relationKey]
+        #relationClass = self.RelationClass[relationKey]
+        schemaValue = relationClass(source, target, bindAttrs=(sourceAttr, targetAttr))
+        attribute = sourceName + '_' + targetName
+        #print attribute
+        graphClass.__setattr__(attribute, graph)
+        schemaClass.__setattr__(attribute, schemaValue)
+        pygr.Data.save()
     
     def _save_featureGraph(self, graph, sourceTBName, sourceAnnoDB, targetTBName, targetAnnoDB, relation, sourceAttr, targetAttr):
         '''Save the graph to pygr.Data'''
@@ -607,10 +661,10 @@ class CoreDBAdaptor(object):
         dna_tbname = self.dbName + '.dna'
         #dnaAdaptor = self.get_adaptor('dna')
         dnaAdaptor = sqlgraph.SQLTable(dna_tbname, itemSliceClass=seqdb.SeqDBSlice, attrAlias=dict(seq='sequence'), itemClass=EnsemblDNA, serverInfo=self.conn)  
-        genomeKey = self.dbSpecies + '_' + self.dbVersion
+        #genomeKey = self.dbSpecies + '_' + self.dbVersion
         #print genomeKey
-        genomeName = CoreDBAdaptor.Genomes[genomeKey]
-        genomeResourceID = 'Bio.Seq.Genome.' + genomeName
+        #genomeName = CoreDBAdaptor.Genomes[genomeKey]
+        genomeResourceID = 'Bio.Seq.Genome.' + self.genomeName
         #print genomeResourceID
         genome = _get_resource(genomeResourceID)
         #chr1seq = genome['chr1']
