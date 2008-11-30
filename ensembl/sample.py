@@ -12,14 +12,20 @@ def sample_DB():
     transcriptDB = coreDBAdaptor.get_feature('transcript')
     transcript = transcriptDB[1]
     print 'length of this transcript: ', len(transcript.sequence)
+    geneDB = coreDBAdaptor.get_feature('gene')
     
     # get graph of feature annotation DBs
-    conn = coreDBAdaptor.conn
-    exonTranscript = sqlgraph.SQLGraph('homo_sapiens_core_47_36i.exon_transcript', serverInfo=conn, sourceDB=exonDB, targetDB=transcriptDB, attrAlias=dict(source_id='exon_id', target_id='transcript_id'))
-    exonTranscript.__doc__= 'an ensembl graph exonAnnoDB -> transcriptAnnoDB (homo_sapiens_core_47_36i)'
-    pygr.Data.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i.exon_transcript = exonTranscript
-    pygr.Data.schema.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i.exon_transcript = pygr.Data.ManyToManyRelation(exonDB, transcriptDB, bindAttrs=('transcripts', 'exons'))
-    pygr.Data.save()
+    exonTranscript = coreDBAdaptor._create_graph(exonDB, transcriptDB, 'exon_transcript')
+    coreDBAdaptor._save_graph(exonTranscript, exonDB, transcriptDB, 'ManyToMany', 'transcripts', 'exons')
+
+    geneTranscript = coreDBAdaptor._create_graph(geneDB, transcriptDB, 'transcript')
+    coreDBAdaptor._save_graph(geneTranscript, geneDB, transcriptDB, 'OneToMany', 'transcripts', 'gene')
+    #conn = coreDBAdaptor.conn
+    #exonTranscript = sqlgraph.SQLGraph('homo_sapiens_core_47_36i.exon_transcript', serverInfo=conn, sourceDB=exonDB, targetDB=transcriptDB, attrAlias=dict(source_id='exon_id', target_id='transcript_id'))
+    #exonTranscript.__doc__= 'an ensembl graph exonAnnoDB -> transcriptAnnoDB (homo_sapiens_core_47_36i)'
+    #pygr.Data.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i.exon_transcript = exonTranscript
+    #pygr.Data.schema.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i.exon_transcript = pygr.Data.ManyToManyRelation(exonDB, transcriptDB, bindAttrs=('transcripts', 'exons'))
+    #pygr.Data.save()
 
 def sample_pygrData():
     exonDB = pygr.Data.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i.exon()
@@ -33,6 +39,19 @@ def sample_pygrData():
     transcript = exonTranscript[exon]
     for t in transcript:
         print t.id, len(t.sequence)
+
+    geneDB = pygr.Data.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i.gene()
+    gene = geneDB[1]
+    print len(gene.sequence)
+    #transcript = transcriptDB[2]
+    transcript = transcriptDB[1]
+    geneTranscript = pygr.Data.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i.gene_transcript()
+    transcripts = geneTranscript[gene]
+    for t in transcripts:
+        print t.id, len(t.sequence)
+    gene = (~geneTranscript)[transcript]
+    for g in gene:
+        print g.id, len(g.sequence)
 
 if __name__ == '__main__': # example code
     
