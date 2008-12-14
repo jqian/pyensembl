@@ -1,6 +1,12 @@
-import ensembl.adaptor
+#import ensembl.adaptor
+import pygr.Data
+import seqregion
 from ensembl.seqregion import *
+#from ensembl.seqregion import seqregion
+import adaptor
+#from ensembl.adaptor import *
 from seqregion import EnsemblRow
+from pygr import seqdb
 
 
 class BaseModel(sqlgraph.TupleO):
@@ -28,6 +34,56 @@ class AnnotBaseModel(EnsemblRow):
         for k, v in self._attrcol.iteritems():
             print k, '=', self._data[v], ' ',
 
+
+class FeatureBase(seqdb.AnnotationSeq):
+    '''A generic interface to a feature annotation object for an item in an ensembl feature table'''
+
+    def to_string(self):
+        'print out all the fields of an item in an ensembl feature table'
+
+        featureTB = self.db.sliceDB
+        featureRec = featureTB[self.id]
+        for k, v in featureRec._attrcol.iteritems():
+            print k, '=', featureRec._data[v], ' ',
+            
+    def get_graph(self, sourceDBName, targetDBName, relationName):
+        # serverRegistry = ensembl.adaptor.get_registry(host='ensembldb.ensembl.org', user='anonymous')
+        serverRegistry = adaptor.get_registry(host='ensembldb.ensembl.org', user='anonymous')
+        name = self.db.sliceDB.name
+        dbName = name.split('.')[0]
+        dbNameList = dbName.split('_')
+        dbSpecies = dbNameList[0] + '_' + dbNameList[1]
+        dbType = dbNameList[2]
+        dbVersion = dbNameList[3] + '_' + dbNameList[4]
+        coreDBAdaptor = serverRegistry.get_DBAdaptor(dbSpecies, dbType, dbVersion)
+        # get feature annotation DB
+        sourceDB = coreDBAdaptor.get_feature(sourceDBName)
+        targetDB = coreDBAdaptor.get_feature(targetDBName)
+        # get graph of feature annotation DBs
+        if (relationName == 'ManyToMany'):            
+            graphAttr = sourceDBName + '_' + targetDBName
+        elif (relationName == 'OneToMany'):
+            graphAttr = targetDBName
+        elif (relationName == 'OneToOne'):
+            graphAttr = sourceDBName
+        else:
+            print 'invalid relation: ', relationName
+
+        myGraph = coreDBAdaptor._create_graph(sourceDB, targetDB, graphAttr)
+        if (relationName == 'ManyToMany'):        
+            sourceAttr = targetDBName + 's'
+            targetAttr = sourceDBName + 's'
+        elif (relationName == 'OneToMany'):
+            sourceAttr = targetDBName
+            targetAttr = sourceDBName + 's'
+        elif (relationName == 'OneToOne'):
+            sourceAttr = targetDBName
+            targetAttr = sourceDBName
+        else:
+            print 'invalid relation: ', relationName
+
+        coreDBAdaptor._save_graph(myGraph, sourceDB, targetDB, relationName, sourceAttr, targetAttr)
+        return myGraph
 
 class MetaCoord(BaseModel):
     '''An interface to a row in the meta_coord table'''
@@ -263,6 +319,56 @@ class StableObj(object):
             version = stableIDObj.version
             return version
 
+class ExonAnnot(FeatureBase):
+    '''An interface to an ensembl exon annotation'''
+
+    def get_all_transcripts(self):
+        '''Obtain all the transcript annotations this exon belongs to'''
+        sourceID = 'Bio.Annotation.Ensembl.' + self.db.sliceDB.name + '_transcript'
+        try:
+            exonTranscript = pygr.Data.getResource(sourceID)
+        except pygr.Data.PygrDataNotFoundError:
+            exonTranscript = self.get_graph('exon', 'transcript', 'ManyToMany')
+        transcripts = exonTranscript[self]
+        return transcripts
+
+class TranscriptAnnot(FeatureBase):
+    '''An interface to an ensembl transcript annotation'''
+
+    def get_all_exons(self):
+        '''Obtain all the exons of this transcript'''
+        sourceID = 'Bio.Annotation.Ensembl.' + 'exon_' + self.db.sliceDB.name
+        try:
+            exonTranscript = pygr.Data.getResource(sourceID)
+        except pygr.Data.PygrDataNotFoundError:
+            exonTranscript = self.get_graph('exon', 'transcript', 'ManyToMany')
+        exons = (~exonTranscript)[self]
+        return exons
+
+    def get_gene(self):
+        'Obtain the gene this transcript derives from'
+        sourceID = 'Bio.Annotation.Ensembl.' + 'gene_' + self.db.sliceDB.name
+        try:
+            geneTranscript = pygr.Data.getResource(sourceID)
+        except pygr.Data.PygrDataNotFoundError:
+            geneTranscript = self.get_graph('gene', 'transcript', 'OneToMany')
+        gene = (~geneTranscript)[self]
+        return gene
+
+
+class GeneAnnot (FeatureBase):
+    '''An interface to an ensembl gene annotation'''
+
+    def get_all_transcripts(self):
+        '''Obtain all the transcript annotations of the gene'''
+        sourceID = 'Bio.Annotation.Ensembl.' + self.db.sliceDB.name + '_transcript'
+        try:
+            geneTranscript = pygr.Data.getResource(sourceID)
+        except pygr.Data.PygrDataNotFoundError:
+            geneTranscript = self.get_graph('gene', 'transcript', 'OneToMany')
+        transcripts = geneTranscript[self]
+        return transcripts
+
 class Exon(StableObj, Feature):
     '''An interface to an exon record in the exon table in an ensembl core 
     database
@@ -333,6 +439,7 @@ class Exon(StableObj, Feature):
            transcriptAnnots = exonTranscriptGraph[exonAnnot]
 
         return transcriptAnnots
+
 
 def _get_featureMapper(sourceTBName, targetTBName, name):
     

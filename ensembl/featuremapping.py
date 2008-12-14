@@ -45,6 +45,7 @@ class ExonToTranscript(object):
     def __invert__(self):
         return self.inverseDB
 '''
+'''
 class GeneToTranscriptInv(object):
     'inverse of a GeneToTranscript mapping: an Ensembl transcript obj -> an Ensembl gene obj'
 
@@ -82,7 +83,7 @@ class GeneToTranscript(object):
 
     def __invert__(self):
         return self.inverseDB
-
+'''
 
 class TranscriptToTranslationInv(object):
     'inverse of a TranscriptToTranslation mapping: an Ensembl translation obj -> an Ensembl transcript obj'

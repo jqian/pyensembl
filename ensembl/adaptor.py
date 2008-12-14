@@ -2,11 +2,32 @@ import MySQLdb
 import pygr.Data
 from pygr import seqdb
 from pygr import sqlgraph
-from ensembl.seqregion import *
+#from ensembl import seqregion
+import seqregion
+from seqregion import EnsemblDNA
+from seqregion import SeqRegion
 from ensembl.featuremapping import *
-from ensembl.datamodel import *
-
-
+#from ensembl.datamodel import *
+import datamodel
+from datamodel import MetaCoord
+from datamodel import Dna
+from datamodel import Exon
+from datamodel import ExonAnnot
+from datamodel import Gene
+from datamodel import GeneAnnot
+from datamodel import Transcript
+from datamodel import TranscriptAnnot
+from datamodel import Seqregion
+from datamodel import Translation
+from datamodel import GeneStableID
+from datamodel import TranscriptStableID
+from datamodel import TranslationStableID
+from datamodel import ExonStableID
+from datamodel import PredictionTranscript
+from datamodel import PredictionExon
+from datamodel import PeptideArchive
+from datamodel import CoordSystem
+from datamodel import Xref
 
 def _get_db_parameters(name):
     dbName = name.split('.')[0]
@@ -436,6 +457,7 @@ class CoreDBAdaptor(object):
     dbType = 'core'
     TBAdaptorClass = {'meta_coord': MetaCoordAdaptor, 'dna': DnaAdaptor, 'exon': ExonAdaptor, 'gene': GeneAdaptor, 'transcript': TranscriptAdaptor, 'seq_region': SeqregionAdaptor, 'translation': TranslationAdaptor, 'gene_stable_id': GeneStableIdAdaptor, 'transcript_stable_id': TranscriptStableIdAdaptor, 'translation_stable_id': TranslationStableIdAdaptor, 'exon_stable_id': ExonStableIdAdaptor, 'xref': XrefAdaptor, 'prediction_transcript': PredictionTranscriptAdaptor, 'meta_coord': MetaCoordAdaptor, 'prediction_exon': PredictionExonAdaptor, 'peptide_archive': PeptideArchiveAdaptor, 'coord_system': CoordSystemAdaptor}
     RowClass = {'meta_coord': MetaCoord, 'dna': Dna, 'exon': Exon, 'gene': Gene, 'transcript': Transcript, 'seq_region': Seqregion, 'translation': Translation, 'gene_stable_id': GeneStableID, 'transcript_stable_id': TranscriptStableID, 'translation_stable_id': TranslationStableID, 'exon_stable_id': ExonStableID, 'xref': Xref, 'prediction_transcript': PredictionTranscript, 'prediction_exon': PredictionExon, 'peptide_archive': PeptideArchive, 'coord_system': CoordSystem}
+    AnnotClass = {'exon': ExonAnnot, 'transcript': TranscriptAnnot, 'gene': GeneAnnot}
     MapperClass = {'prediction_transcript_prediction_exon': PtranscriptToPexon, 'gene_transcript': GeneToTranscript, 'transcript_translation': TranscriptToTranslation}
     #Genomes = {'homo_sapiens_47_36i': 'HUMAN.hg18'}
 
@@ -462,7 +484,8 @@ class CoreDBAdaptor(object):
         'Obtain an annotation DB for a core database table'
         # get a SQLTable object
         name = self.dbName + '.' + featureTB
-        tbAdaptor = sqlgraph.SQLTable(name, itemClass=AnnotBaseModel, serverInfo=self.conn)
+        #tbAdaptor = sqlgraph.SQLTable(name, itemClass=AnnotBaseModel, serverInfo=self.conn)
+        tbAdaptor = sqlgraph.SQLTable(name, itemClass=seqregion.EnsemblRow, serverInfo=self.conn)
         annoDB = self._get_annotationDB(featureTB, tbAdaptor)
         return annoDB
             
@@ -702,8 +725,9 @@ class CoreDBAdaptor(object):
             
     def _create_annoDB(self, tbAdaptor):
         sr = self._get_seqregion()
-        from pygr.seqdb import AnnotationDB
-        annoDB = AnnotationDB(tbAdaptor, sr, sliceAttrDict= dict(id='seq_region_id', stop='seq_region_end', orientation='seq_region_strand'))
+        #from pygr.seqdb import AnnotationDB
+        tbName = tbAdaptor.name.split('.')[1]
+        annoDB = seqdb.AnnotationDB(tbAdaptor, sr, itemClass=CoreDBAdaptor.AnnotClass[tbName], sliceAttrDict= dict(id='seq_region_id', stop='seq_region_end', orientation='seq_region_strand'))
         return annoDB
         
     def _get_annotationDB(self, tbname, tbAdaptor):
