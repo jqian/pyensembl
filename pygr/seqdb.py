@@ -263,41 +263,19 @@ def blast_program(query_type,db_type):
     return progs[query_type][db_type]
 
 
-def get_interval(seq,start,end,ori):
-    "trivial function to get the interval seq[start:end] with requested ori"
-    ival=seq[start:end]
-    if ori== -1:
-        ival= -ival
-    return ival
-
-def save_interval_alignment(m, ival, srcSet, destSet=None, edgeClass=None,
-                            ivalXform=get_interval):
-    "Add ival to alignment m, with edge info if requested"
-    if destSet is None:
-        destSet=srcSet
-    srcSeq=srcSet[ival.src_id]
-    srcPath=ivalXform(srcSeq,ival.src_start,ival.src_end,ival.src_ori)
-    destPath=ivalXform(destSet[ival.dest_id],ival.dest_start,ival.dest_end,ival.dest_ori)
-    if edgeClass is not None:
-        m+=srcSeq # MAKE SURE THIS SEQUENCE IS IN THE MAPPING TOP-LEVEL INDEX
-        m[srcPath][destPath]=edgeClass(ival) # SAVE ALIGNMENT WITH EDGE INFO
-    else:
-        m+=srcSeq # MAKE SURE THIS SEQUENCE IS IN THE MAPPING TOP-LEVEL INDEX
-        m[srcPath][destPath]=None # JUST SAVE ALIGNMENT, NO EDGE INFO
-    return srcPath,destPath # HAND BACK IN CASE CALLER WANTS TO KNOW THE INTERVALS
-
-
-def read_interval_alignment(ofile,srcSet,destSet,al=None,edgeClass=None):
+def read_interval_alignment(ofile, srcSet, destSet, al=None):
     "Read tab-delimited interval mapping between seqs from the 2 sets of seqs"
-    needToBuild=False
+    needToBuild = False
     if al is None:
         import cnestedlist
-        al=cnestedlist.NLMSA('blasthits','memory',pairwiseMode=True)
-        edgeClass=None
-        needToBuild=True
-    p=BlastHitParser()
-    for ival in p.parse_file(ofile):
-        save_interval_alignment(al, ival, srcSet, destSet, edgeClass)
+        al = cnestedlist.NLMSA('blasthits', 'memory', pairwiseMode=True)
+        needToBuild = True
+    p = BlastHitParser()
+    al.add_aligned_intervals(p.parse_file(ofile), srcSet, destSet,
+                             dict(id='src_id', start='src_start',
+                                  stop='src_end', ori='src_ori',
+                                  idDest='dest_id', startDest='dest_start',
+                                  stopDest='dest_end', oriDest='dest_ori'))
     if p.nline==0: # NO BLAST OUTPUT??
         raise IOError('no BLAST output.  Check that blastall is in your PATH')
     if needToBuild:
@@ -497,7 +475,7 @@ class SequenceFileDB(SequenceDB):
             kwargs['ifile'].close()
         except (KeyError, AttributeError): pass
 
-class BlastDBbase(SequenceFileDB):
+class BlastDB(SequenceFileDB):
     "Container representing Blast database"
     def __init__(self, filepath=None, blastReady=False, blastIndexPath=None,
                  blastIndexDirs=None, **kwargs):
@@ -632,7 +610,7 @@ To turn off this message, use the verbose=False option''' % methodname
               %(blastpath,self.get_blast_index_path(),blastprog,float(expmax),opts)
         if maxseq is not None: # ONLY TAKE TOP maxseq HITS
             cmd += ' -b %d -v %d' % (maxseq,maxseq)
-        return process_blast(cmd,seq,self,al)
+        return process_blast(cmd, seq, BlastIDIndex(self), al)
 
     def megablast(self,seq,al=None,blastpath='megablast',expmax=1e-20,
                   maxseq=None,minIdentity=None,maskOpts='-U T -F m',
@@ -650,20 +628,24 @@ To turn off this message, use the verbose=False option''' % methodname
             cmd += ' -b %d -v %d' % (maxseq,maxseq)
         if minIdentity is not None:
             cmd += ' -p %f' % float(minIdentity)
-        return process_blast(cmd,seq,self,al,seqString=masked_seq)
+        return process_blast(cmd, seq, BlastIDIndex(self), al,
+                             seqString=masked_seq)
 
 
-class BlastDB(BlastDBbase):
-    """Since NCBI treats FASTA ID as a blob into which they like to stuff
+class BlastIDIndex(object):
+    """This class acts as a wrapper around a regular seqDB, and handles
+    the mangled IDs returned by BLAST to translate them to the correct ID.
+    Since NCBI treats FASTA ID as a blob into which they like to stuff
     many fields... and then NCBI BLAST mangles those IDs when it reports
     hits, so they no longer match the true ID... we are forced into
-    contortions to rescue the true ID from mangled IDs.  If you dont want
-    these extra contortions, use the base class BlastDBbase instead.
+    contortions to rescue the true ID from mangled IDs.  
 
     Our workaround strategy: since NCBI packs the FASTA ID with multiple
     IDs (GI, GB, RefSeq ID etc.), we can use any of these identifiers
     that are found in a mangled ID, by storing a mapping of these
     sub-identifiers to the true FASTA ID."""
+    def __init__(self, seqDB):
+        self.seqDB = seqDB
     id_delimiter='|' # FOR UNPACKING NCBI IDENTIFIERS AS WORKAROUND FOR BLAST ID CRAZINESS
     def unpack_id(self,id):
         "NCBI packs identifier like gi|123456|gb|A12345|other|nonsense. Return as list"
@@ -713,26 +695,15 @@ class BlastDB(BlastDBbase):
             except KeyError:
                 pass # KEEP TRYING...
         # FOUND NO MAPPING, SO RAISE EXCEPTION            
-        raise KeyError, "no key '%s' in database %s" % (bogusID, repr(self),)
+        raise KeyError, "no key '%s' in database %s" % (bogusID,
+                                                        repr(self.seqDB))
 
-    def __getitem__(self,id):
-        "Get sequence matching this ID, using dict as local cache"
-        if hasattr(self,'_unpacked_dict'): # TRY USING ID MAPPING
-            try:
-                id=self.get_real_id(id)
-            except KeyError:
-                pass
-        try:
-            return self._weakValueDict[id]
-        except KeyError: # NOT FOUND IN DICT, SO CREATE A NEW OBJECT
-            try:
-                s=self.itemClass(self,id)
-            except KeyError:
-                id=self.get_real_id(id)
-                s=self.itemClass(self,id)
-            s.db=self # LET IT KNOW WHAT DATABASE IT'S FROM...
-            self._weakValueDict[id] = s # CACHE IT
-            return s
+    def __getitem__(self, seqID):
+        "If seqID is mangled by BLAST, use our index to get correct ID"
+        try: # default: treat as a correct ID
+            return self.seqDB[seqID]
+        except KeyError: # translate to the correct ID
+            return self.seqDB[self.get_real_id(seqID)]
 
 def getAnnotationAttr(self,attr):
     'forward attributes from slice object if available'
@@ -1464,7 +1435,7 @@ directly as the seqDict argument to the NLMSA constructor.''' % id)
 class BlastDBXMLRPC(BlastDB):
     'XMLRPC server wrapper around a standard BlastDB'
     xmlrpc_methods = dict(getSeqLen=0, strslice=0, getSeqLenDict=0,
-                          get_db_size=0)
+                          get_db_size=0, get_seqtype=0)
     def getSeqLen(self,id):
         'get sequence length, or -1 if not found'
         try:
@@ -1485,6 +1456,8 @@ class BlastDBXMLRPC(BlastDB):
             return str((-(self[id]))[-stop:-start])
         else: # POSITIVE ORIENTATION
             return str(self[id][start:stop])
+    def get_seqtype(self):
+        return self._seqtype
 
 
 
@@ -1542,7 +1515,13 @@ class XMLRPCSequenceDB(SequenceDB):
             return True
         else:
             return False
-
+    def set_seqtype(self):
+        'efficient way to determine sequence type of this database'
+        try: # if already known, no need to do anything
+            return self._seqtype
+        except AttributeError:
+            self._seqtype = self.server.get_seqtype()
+            return self._seqtype
 
 def fastaDB_unpickler(klass,srcfile,kwargs):
     if klass is BlastDB or klass == 'BlastDB':

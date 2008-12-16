@@ -177,6 +177,10 @@ def shadow_reducer(self):
     shadowClass = self.__class__
     trueClass = shadowClass._shadowParent # super() TOTALLY FAILED ME HERE!
     self.__class__ = trueClass # FORCE IT TO PICKLE USING trueClass
+    keepDB = False
+    if hasattr(shadowClass, 'db') and not hasattr(self, 'db'):
+        keepDB = True
+        self.__dict__['db'] = shadowClass.db # retain this attribute!!
     if hasattr(trueClass,'__reduce__'): # USE trueClass.__reduce__
         result = trueClass.__reduce__(self)
     elif hasattr(trueClass,'__getstate__'): # USE trueClass.__getstate__
@@ -184,6 +188,8 @@ def shadow_reducer(self):
     else: # PICKLE __dict__ AS USUAL PYTHON PRACTICE
         result = (ClassicUnpickler,(trueClass,self.__dict__))
     self.__class__ = shadowClass # RESTORE SHADOW CLASS
+    if keepDB: # now we can drop the temporary db attribute we added
+        del self.__dict__['db']
     return result
 
 
@@ -369,3 +375,56 @@ class RecentValueDictionary(WeakValueDictionary):
 
 
             
+class AttributeInterface(object):
+  '''getattr interface that can work with objects (if attrDict has string values)
+  or tuples (if attrDict has integer values)'''
+  def __init__(self, attrDict):
+    self.attrDict = attrDict
+    try:
+      if isinstance(attrDict.values()[0], int):
+        self.__class__ = self._tupleClass
+      elif isinstance(attrDict.values()[0], str):
+        self.__class__ = self._objectClass
+    except IndexError:
+      pass
+  def __call__(self, obj, attr, default=None):
+    'regular getattr from obj'
+    try:
+        return getattr(obj, attr)
+    except AttributeError:
+        if default is not None:
+            return default
+
+class AttrFromTuple(AttributeInterface):
+  def __call__(self, obj, attr, default=None):
+    'getattr from tuple obj'
+    try:
+        return obj[self.attrDict[attr]]
+    except IndexError:
+        if default is not None:
+            return default
+
+class AttrFromObject(AttributeInterface):
+  def __call__(self, obj, attr, default=None):
+    'getattr with attribute name aliases'
+    try:
+        return getattr(obj, self.attrDict[attr])
+    except KeyError:
+        try:
+            return getattr(obj, attr)
+        except KeyError:
+            if default is not None:
+                return default
+
+AttributeInterface._tupleClass = AttrFromTuple
+AttributeInterface._objectClass = AttrFromObject
+
+def kwargs_filter(kwargs, allowed):
+    'return dictionary of kwargs filtered by list allowed'
+    d = {}
+    for arg in allowed:
+        try:
+            d[arg] = kwargs[arg]
+        except KeyError:
+            pass
+    return d
