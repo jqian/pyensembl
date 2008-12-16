@@ -5,7 +5,7 @@ from mapping import *
 import types
 from classutil import ClassicUnpickler,methodFactory,standard_getstate,\
      override_rich_cmp,generate_items,get_bound_subclass,standard_setstate,\
-     get_valid_path,standard_invert,RecentValueDictionary
+     get_valid_path,standard_invert,RecentValueDictionary,read_only_error
 import os
 import platform 
 import UserDict
@@ -223,12 +223,13 @@ class SQLTableBase(object, UserDict.DictMixin):
     def __init__(self,name,cursor=None,itemClass=None,attrAlias=None,
                  clusterKey=None,createTable=None,graph=None,maxCache=None,
                  arraysize=1024, itemSliceClass=None, dropIfExists=False,
-                 serverInfo=None, autoGC=True, **kwargs):
+                 serverInfo=None, autoGC=True, orderBy=None, **kwargs):
         if autoGC: # automatically garbage collect unused objects
             self._weakValueDict = RecentValueDictionary(autoGC) # object cache
         else:
             self._weakValueDict = {}
         self.autoGC = autoGC
+        self.orderBy = orderBy
         if cursor is None:
             if serverInfo is not None: # get cursor from serverInfo
                 cursor = serverInfo.cursor()
@@ -298,7 +299,7 @@ class SQLTableBase(object, UserDict.DictMixin):
     def __hash__(self):
         return id(self)
     _pickleAttrs = dict(name=0, clusterKey=0, maxCache=0, arraysize=0,
-                        attrAlias=0, serverInfo=0, autoGC=0)
+                        attrAlias=0, serverInfo=0, autoGC=0, orderBy=0)
     __getstate__ = standard_getstate
     def __setstate__(self,state):
         if 'serverInfo' not in state: # hmm, no address for db server?
@@ -492,6 +493,8 @@ You must directly assign obj an ID, i.e. db[new_id] = obj''')
 
 def getKeys(self,queryOption=''):
     'uses db select; does not force load'
+    if queryOption=='' and self.orderBy is not None:
+        queryOption = self.orderBy # apply default ordering
     self.cursor.execute('select %s from %s %s' 
                         %(self.primary_key,self.name,queryOption))
     return [t[0] for t in self.cursor.fetchall()] # GET ALL AT ONCE, SINCE OTHER CALLS MAY REUSE THIS CURSOR...
@@ -1416,3 +1419,80 @@ class DBServerInfo(object):
 
 
             
+class MapView(object, UserDict.DictMixin):
+    'general purpose 1:1 mapping defined by any SQL query'
+    def __init__(self, sourceDB, targetDB, viewSQL, cursor=None,
+                 serverInfo=None):
+        self.sourceDB = sourceDB
+        self.targetDB = targetDB
+        self.viewSQL = viewSQL
+        if cursor is None:
+            if serverInfo is not None: # get cursor from serverInfo
+                cursor = serverInfo.cursor()
+            else:
+                try: # can we get it from our other db?
+                    serverInfo = sourceDB.serverInfo
+                except AttributeError:
+                    raise ValueError('you must provide serverInfo or cursor!')
+                else:
+                    cursor = serverInfo.cursor()
+        self.cursor = cursor
+        self.serverInfo = serverInfo
+    def __getitem__(self, k):
+        if not hasattr(k,'db') or k.db != self.sourceDB:
+            raise KeyError('object is not in the sourceDB bound to this map!')
+        if self.cursor.execute(self.viewSQL, (k.id,))!=1:
+            raise KeyError('%s not found in MapView, or not unique'
+                           % str(k))
+        t = self.cursor.fetchone() # get the target ID
+        return self.targetDB[t[0]] # get the corresponding object
+    _pickleAttrs = dict(sourceDB=0, targetDB=0, viewSQL=0, serverInfo=0)
+    __getstate__ = standard_getstate
+    __setstate__ = standard_setstate
+    __setitem__ = __delitem__ = clear = pop = popitem = update = \
+                  setdefault = read_only_error
+    def __len__(self):
+        return len(self.sourceDB)
+    def __iter__(self):
+        return self.sourceDB.itervalues()
+    def keys(self):
+        return self.sourceDB.values()
+    def __contains__(self, k):
+        try:
+            return k.db==self.sourceDB
+        except AttributeError:
+            return False
+    def iteritems(self):
+        for k in self:
+            yield k,self[k]
+
+class GraphViewEdgeDict(dict):
+    'edge dictionary for GraphView: just pre-loaded on init'
+    def __init__(self, g, k):
+        dict.__init__(self)
+        self.g = g
+        self.k = k
+        self.g.cursor.execute(self.g.viewSQL, (k.id,)) # run the query
+        l = self.g.cursor.fetchall() # get results
+        if self.g.edgeDB is not None: # save with edge info
+            for t in l:
+                dict.__setitem__(self, self.g.targetDB[t[0]],
+                                 self.g.edgeDB[t[1]])
+        else: # just save the list of targets, no edge info
+            for t in l:
+                dict.__setitem__(self, self.g.targetDB[t[0]], None)
+    __setitem__ = __delitem__ = clear = pop = popitem = update = \
+                  setdefault = read_only_error
+
+class GraphView(MapView):
+    'general purpose graph interface defined by any SQL query'
+    def __init__(self, sourceDB, targetDB, viewSQL, cursor=None, edgeDB=None):
+        'if edgeDB not None, viewSQL query must return (targetID,edgeID) tuples'
+        self.edgeDB = edgeDB
+        MapView.__init__(self, sourceDB, targetDB, viewSQL, cursor)
+    def __getitem__(self, k):
+        if not hasattr(k,'db') or k.db != self.sourceDB:
+            raise KeyError('object is not in the sourceDB bound to this map!')
+        return GraphViewEdgeDict(self, k)
+    _pickleAttrs = MapView._pickleAttrs.copy()
+    _pickleAttrs.update(dict(edgeDB=0))

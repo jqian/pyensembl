@@ -856,7 +856,7 @@ alignment intervals to an NLMSA after calling its build() method.''')
 
   def filterIvalConservation(self,seqIntervals,pIdentityMin=None,
                              filterFun=None,**kwargs):
-    cdef int i,j,targetID
+    cdef int i,j
     cdef NLMSA nl
     import types
     if filterFun is None:
@@ -1360,11 +1360,17 @@ cdef class NLMSASequence:
     import os
     os.remove(filename) # REMOVE OUR .build FILE, NO LONGER NEEDED
     self.db=IntervalFileDB(self.filestem) # NOW OPEN THE IntervalFileDB
+    return self.nbuild # return count of intervals
 
   def buildInMemory(self,verbose=False,**kwargs):
-    if self.buildList is not None:
+    try:
+      n = len(self.buildList)
+    except TypeError:
+      return 0
+    else:
       self.idb.save_tuples(self.buildList,**kwargs)
-    self.buildList=None
+      self.buildList = None
+      return n
 
   cdef int saveInterval(self,IntervalMap im[],int n,int expand_self,FILE *ifile):
     cdef int i
@@ -1449,7 +1455,7 @@ cdef class NLMSA:
                trypath=None,bidirectional=True,pairwiseMode= -1,
                bidirectionalRule=nlmsa_utils.prune_self_mappings,
                use_virtual_lpo=None,maxLPOcoord=None,
-               inverseDB=None,**kwargs):
+               inverseDB=None, alignedIvals=None, **kwargs):
     try:
       import resource # WE MAY NEED TO OPEN A LOT OF FILES...
       resource.setrlimit(resource.RLIMIT_NOFILE,(maxOpenFiles,-1))
@@ -1508,6 +1514,9 @@ cdef class NLMSA:
           self.seqDict=seqdb.SeqPrefixUnionDict(addAll=True)
         self.initLPO() # CREATE AS MANY LPOs AS WE NEED
         self.newSequence(is_union=1) # SO HE NEEDS AN INITIAL UNION
+      if alignedIvals is not None:
+        self.add_aligned_intervals(alignedIvals, **kwargs)
+        self.build()
     elif mode=='memory': # CONSTRUCT IN-MEMORY
       if self.seqDict is None:
         import seqdb
@@ -1517,6 +1526,9 @@ cdef class NLMSA:
       self.initLPO() # CREATE AS MANY LPOs AS WE NEED
       self.newSequence(is_union=1) # CREATE INITIAL UNION
       self.lpo_id=0
+      if alignedIvals is not None:
+        self.add_aligned_intervals(alignedIvals, **kwargs)
+        self.build()
     elif mode!='xmlrpc':
       raise ValueError('unknown mode %s' % mode)
 
@@ -1672,6 +1684,13 @@ See the NLMSA documentation for more details.\n''')
     ival = a.sequence # GET PURE SEQUENCE INTERVAL
     self.__iadd__(ival) # ADD SEQ AS A NODE IN OUR ALIGNMENT
     self[ival].__iadd__(a) # ADD ALIGNMENT BETWEEN ival AND ANNOTATION
+  def add_aligned_intervals(self, alignedIvals, *args, **kwargs):
+    'add ID/coords in alignedIvals to this alignment'
+    from classutil import kwargs_filter
+    nlmsa_utils.add_aligned_intervals(self, alignedIvals, *args,
+                                      **kwargs_filter(kwargs,
+                                         ('alignedIvalsSrc', 'alignedIvalsDest',
+                                          'alignedIvalsAttrs')))
 
   cdef void free_seqidmap(self,int nseq0,SeqIDMap *seqidmap):
     cdef int i
@@ -1924,16 +1943,21 @@ See the NLMSA documentation for more details.\n''')
     'build nestedlist databases on-disk, and .seqDict index if desired'
     cdef NLMSASequence ns
     self.seqs.reopenReadOnly() # SAVE INDEXES AND OPEN READ-ONLY
+    ntotal = 0
     ifile=file(self.pathstem+'.NLMSAindex','w')
-    for ns in self.seqlist: # BUILD EACH IntervalFileDB ONE BY ONE
-      ns.buildFiles(**kwargs)
-      if ns.is_lpo:
-        ifile.write('%d\t%s\t%d\t%d\n' %(ns.id,'NLMSA_LPO_Internal',0,ns.length))
-      elif ns.is_union:
-        ifile.write('%d\t%s\t%d\t%d\n' %(ns.id,'NLMSA_UNION_Internal',1,ns.length))
-      else:
-        ifile.write('%d\t%s\t%d\t%d\n' %(ns.id,ns.name,0,ns.length))
-    ifile.close()
+    try:
+      for ns in self.seqlist: # BUILD EACH IntervalFileDB ONE BY ONE
+        ntotal = ntotal + ns.buildFiles(**kwargs)
+        if ns.is_lpo:
+          ifile.write('%d\t%s\t%d\t%d\n' %(ns.id,'NLMSA_LPO_Internal',0,ns.length))
+        elif ns.is_union:
+          ifile.write('%d\t%s\t%d\t%d\n' %(ns.id,'NLMSA_UNION_Internal',1,ns.length))
+        else:
+          ifile.write('%d\t%s\t%d\t%d\n' %(ns.id,ns.name,0,ns.length))
+    finally:
+      ifile.close()
+    if ntotal==0:
+      raise nlmsa_utils.EmptyAlignmentError('empty alignment!')
     import sys,pickle
     ifile = file(self.pathstem+'.attrDict','w')
     try:
@@ -1967,8 +1991,11 @@ To turn off this message, use the verbose=False option
     except AttributeError: # THAT WAS PURELY OPTIONAL...
       pass
     if self.in_memory_mode:
+      ntotal = 0
       for ns in self.seqlist: # BUILD EACH IntervalDB ONE BY ONE
-        ns.buildInMemory(**kwargs)
+        ntotal = ntotal + ns.buildInMemory(**kwargs)
+      if ntotal==0:
+        raise nlmsa_utils.EmptyAlignmentError('empty alignment!')
     else:
       self.buildFiles(**kwargs)
     self.do_build=0
