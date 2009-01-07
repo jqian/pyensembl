@@ -870,9 +870,11 @@ so report the reproducible steps to this error message as a bug report.''' % res
             from sqlgraph import SQLTableBase,SQLGraphClustered
             excludeClasses = [SQLTableBase,SQLGraphClustered]
         if serverClasses is None: # DEFAULT TO ALL CLASSES WE KNOW HOW TO SERVE
-            from seqdb import BlastDB,XMLRPCSequenceDB,BlastDBXMLRPC, \
+            from seqdb import SequenceFileDB,BlastDB, \
+                 XMLRPCSequenceDB,BlastDBXMLRPC, \
                  AnnotationDB, AnnotationClient, AnnotationServer
-            serverClasses=[(BlastDB,XMLRPCSequenceDB,BlastDBXMLRPC),
+            serverClasses=[(SequenceFileDB,XMLRPCSequenceDB,BlastDBXMLRPC),
+                           (BlastDB,XMLRPCSequenceDB,BlastDBXMLRPC),
                            (AnnotationDB,AnnotationClient,AnnotationServer)]
             try:
                 from cnestedlist import NLMSA
@@ -1016,7 +1018,10 @@ so report the reproducible steps to this error message as a bug report.''' % res
     def delSchema(self,id,layer=None):
         'delete schema bindings TO and FROM this resource ID'
         db=self.getLayer(layer)
-        d=db.getschema(id) # GET THE EXISTING SCHEMA
+        try:
+            d=db.getschema(id) # GET THE EXISTING SCHEMA
+        except KeyError:
+            return # no schema stored for this object so nothing to do...
         self.schemaCache.clear() # THIS IS MORE AGGRESSIVE THAN NEEDED... COULD BE REFINED
         for attr,obj in d.items():
             if attr.startswith('-'): # A SCHEMA OBJECT
