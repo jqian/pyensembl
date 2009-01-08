@@ -3,7 +3,7 @@ from ensembl import adaptor
 from pygr import sqlgraph
 
 def sample_DB():
-    """sample code on how to retrieve and save ensembl features and feature graphs from and to pygr.Data using a perl-like interface""" 
+    """sample code on how to retrieve ensembl features and schemas using a perl-like interface""" 
 
     serverRegistry = adaptor.get_registry(host='ensembldb.ensembl.org', user='anonymous')
     coreDBAdaptor = serverRegistry.get_DBAdaptor('homo_sapiens', 'core', '47_36i')
@@ -15,7 +15,26 @@ def sample_DB():
     transcript = transcriptDB[1]
     print 'length of this transcript: ', len(transcript.sequence)
     geneDB = coreDBAdaptor.get_feature('gene')
+    gene = geneDB[1]
     
+    # Retrieve annotation objects through their related annotation objects.  In the meantime, save the inter-relations into pygr.Data
+    exons = transcript.get_all_exons()
+    for e in exons:
+        print e.id, e.seq_region_start, len(e.sequence)
+
+    transcripts = exon.get_all_transcripts()
+    for t in transcripts:
+        print t.id, t.seq_region_start, len(t.sequence)
+
+    genes = transcript.get_gene()
+    for g in genes:
+        print g.id, len(g.sequence)
+
+    transcripts = gene.get_all_transcripts()
+    for t in transcripts:
+        print t.id, len(t.sequence)
+
+
     # get graph of feature annotation DBs
     #exonTranscript = coreDBAdaptor._create_graph(exonDB, transcriptDB, 'exon_transcript')
     #coreDBAdaptor._save_graph(exonTranscript, exonDB, transcriptDB, 'ManyToMany', 'transcripts', 'exons')
@@ -30,10 +49,36 @@ def sample_DB():
     #pygr.Data.save()
 
 def sample_pygrData():
+    
+    # get feature annotationDB from pygr.Data
     exonDB = pygr.Data.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i.exon()
     transcriptDB = pygr.Data.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i.transcript()
+    geneDB = pygr.Data.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i.gene()
     exon = exonDB[1]
     transcript = transcriptDB[1]
+    gene = geneDB[1]
+
+    # get feature annotation graphs from pygr.Data
+    exonTranscript = pygr.Data.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i.exon_transcript()
+    geneTranscript = pygr.Data.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i.gene_transcript()
+    
+    print '\n'
+    exons = (~exonTranscript)[transcript]
+    for e in exons:
+        print e.id, e.seq_region_start, len(e.sequence)
+    
+    transcripts = exonTranscript[exon]
+    for t in transcripts:
+        print t.id, t.seq_region_start, len(t.sequence)
+
+    genes = (~geneTranscript)[transcript]
+    for g in genes:
+        print g.id, len(g.sequence)
+
+    transcripts = geneTranscript[gene]
+    for t in transcripts:
+        print t.id, len(t.sequence)
+
     #exonTranscript = pygr.Data.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i.exon_transcript()
     #exons = (~exonTranscript)[transcript]
     #for e in exons:
@@ -41,10 +86,7 @@ def sample_pygrData():
     #transcript = exonTranscript[exon]
     #for t in transcript:
     #    print t.id, len(t.sequence)
-
-    geneDB = pygr.Data.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i.gene()
-    gene = geneDB[1]
-    print len(gene.sequence)
+    #print len(gene.sequence)
     #transcript = transcriptDB[2]
     #transcript = transcriptDB[1]
     #geneTranscript = pygr.Data.Bio.Annotation.Ensembl.homo_sapiens_core_47_36i.gene_transcript()
