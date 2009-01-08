@@ -458,7 +458,7 @@ class CoreDBAdaptor(object):
     TBAdaptorClass = {'meta_coord': MetaCoordAdaptor, 'dna': DnaAdaptor, 'exon': ExonAdaptor, 'gene': GeneAdaptor, 'transcript': TranscriptAdaptor, 'seq_region': SeqregionAdaptor, 'translation': TranslationAdaptor, 'gene_stable_id': GeneStableIdAdaptor, 'transcript_stable_id': TranscriptStableIdAdaptor, 'translation_stable_id': TranslationStableIdAdaptor, 'exon_stable_id': ExonStableIdAdaptor, 'xref': XrefAdaptor, 'prediction_transcript': PredictionTranscriptAdaptor, 'meta_coord': MetaCoordAdaptor, 'prediction_exon': PredictionExonAdaptor, 'peptide_archive': PeptideArchiveAdaptor, 'coord_system': CoordSystemAdaptor}
     RowClass = {'meta_coord': MetaCoord, 'dna': Dna, 'exon': Exon, 'gene': Gene, 'transcript': Transcript, 'seq_region': Seqregion, 'translation': Translation, 'gene_stable_id': GeneStableID, 'transcript_stable_id': TranscriptStableID, 'translation_stable_id': TranslationStableID, 'exon_stable_id': ExonStableID, 'xref': Xref, 'prediction_transcript': PredictionTranscript, 'prediction_exon': PredictionExon, 'peptide_archive': PeptideArchive, 'coord_system': CoordSystem}
     AnnotClass = {'exon': ExonAnnot, 'transcript': TranscriptAnnot, 'gene': GeneAnnot}
-    MapperClass = {'prediction_transcript_prediction_exon': PtranscriptToPexon, 'gene_transcript': GeneToTranscript, 'transcript_translation': TranscriptToTranslation}
+    #MapperClass = {'prediction_transcript_prediction_exon': PtranscriptToPexon, 'gene_transcript': GeneToTranscript, 'transcript_translation': TranscriptToTranslation}
     #Genomes = {'homo_sapiens_47_36i': 'HUMAN.hg18'}
 
     #import pygr.Data
