@@ -5,6 +5,8 @@ from sqlgraph import *
 import classutil
 import UserDict
 import weakref
+from annotation import AnnotationDB, AnnotationSeq, AnnotationSlice, \
+     AnnotationServer, AnnotationClient
 
 class SQLSequence(SQLRow,SequenceBase):
     "Transparent access to a DB row representing a sequence; no caching."
@@ -62,7 +64,7 @@ class SeqLenDictSaver(object):
         self.reader = reader
     def __call__(self, d, ifile, filename):
         offset = 0L
-        ifile2 = file(filename+'.pureseq', 'w')
+        ifile2 = file(filename+'.pureseq', 'wb') # binary file
         try:
             for o in reader(ifile, filename): # run the reader as iterator
                 d[o.id] = o.length,offset # save to seqlendict
@@ -74,7 +76,8 @@ class SeqLenDictSaver(object):
         finally:
             ifile2.close()
 
-def store_seqlen_dict(d, filename, ifile=None, idFilter=None, reader=None):
+def store_seqlen_dict(d, filename, ifile=None, idFilter=None, reader=None,
+                      mode='rU'):
     "store sequence lengths in a dictionary"
     if reader is not None: # run the user's custom reader() function.
         builder = SeqLenDictSaver(reader)
@@ -104,7 +107,7 @@ option to force a clean install''' % sys.version_info[:2])
     if ifile is not None:
         builder(d, ifile, filename) # run the builder on our sequence set
     else:
-        ifile = file(filename)
+        ifile = file(filename, mode)
         try:
             builder(d, ifile, filename) # run the builder on our sequence set
         finally:
@@ -116,11 +119,16 @@ class FileDBSeqDescriptor(object):
         return obj.strslice(0,obj.db.seqLenDict[obj.id][0])
 
 class FileDBSequence(SequenceBase):
+    '''Our standard sequence storage mechanism, utilizing
+    a shelve index of lengths and offsets, and fseek access to slices
+    of sequence stored in a file.'''
     seq=FileDBSeqDescriptor()
     __reduce__ = classutil.item_reducer
     #@classmethod # decorators don't work prior to Python 2.4
     def _init_subclass(cls, db, filepath, **kwargs):
-        'open or build seqLenDict if needed'
+        '''initialize our indexes if needed, and provide db with a
+        seqInfoDict attribute for looking up length and offset info.
+        Open or build seqLenDict if needed'''
         cls.db = db # all instances of this class are now bound to this database
         from dbfile import NoSuchFileError
         try: # THIS WILL FAIL IF SHELVE NOT ALREADY PRESENT...
@@ -154,8 +162,8 @@ class FileDBSequence(SequenceBase):
         try:
             ifile=self.db._pureseq
         except AttributeError:
-            ifile=file(self.db.filepath+'.pureseq')
-            self.db._pureseq=ifile
+            ifile = file(self.db.filepath + '.pureseq', 'rb') # binary mode
+            self.db._pureseq = ifile # but text mode probably also OK...
         ifile.seek(self.db.seqLenDict[self.id][1]+start)
         return ifile.read(end-start)
     
@@ -172,19 +180,14 @@ class SequenceDBInverse(object):
         except AttributeError:
             return False
 
-class SeqDBDescriptor(object):
-    'forwards attribute requests to self.pathForward'
-    def __init__(self,attr):
-        self.attr=attr
-    def __get__(self,obj,objtype):
-        return getattr(obj.pathForward,self.attr) # RAISES AttributeError IF NONE
-
-class SeqDBSlice(SeqPath):
-    'JUST A WRAPPER FOR SCHEMA TO HANG SHADOW ATTRIBUTES ON...'
-    id=SeqDBDescriptor('id')
-    db=SeqDBDescriptor('db')
-
 class SequenceDB(object, UserDict.DictMixin):
+    '''Base class for sequence databases, irrespective of actual storage
+    mechanism.  Only provides a few basic behaviors:
+    - dict-like interface to sequence objects each with an ID
+    - weakref-based automatic flushing of seq objects no longer in use
+    - cacheHint() system for caching a given set of sequence
+    intervals associated with an owner object, which are flushed
+    from cache if the owner object is garbage-collected.'''
     itemSliceClass=SeqDBSlice # CLASS TO USE FOR SLICES OF SEQUENCE
     def __init__(self, autoGC=True, dbname='generic', **kwargs):
         "Initialize seq db from filepath or ifile"
@@ -215,8 +218,12 @@ class SequenceDB(object, UserDict.DictMixin):
             return self._seqtype
         except AttributeError:
             pass
+        for seqID in self:
+            seq = self[seqID] # get the 1st sequence
+            self._seqtype = guess_seqtype(str(seq[:100]))
+            break
         try:
-            ifile = file(self.filepath) # read one sequence to check its type
+            ifile = file(self.filepath, 'rU') # read one sequence to check type
             try: # this only works for FASTA file...
                 id,title,seq = read_fasta_one_line(ifile) 
                 self._seqtype = guess_seqtype(seq) # record protein vs. DNA...
@@ -300,11 +307,17 @@ class SequenceDB(object, UserDict.DictMixin):
     def clear_cache(self):
         'empty the cache'
         self._weakValueDict.clear()
+
     # these methods should not be implemented for read-only database.
     clear = setdefault = pop = popitem = copy = update = \
             classutil.read_only_error
 
 class SequenceFileDB(SequenceDB):
+    '''Main class for file-based storage of a sequence database.
+    By using a different itemClass you can force it to use a different
+    file storage / indexing mechanism.  By default uses FileDBSequence,
+    which uses shelve to store an index of sequence IDs, and file.seek()
+    to quickly obtain desired slices of stored sequence.'''
     itemClass = FileDBSequence # CLASS TO USE FOR SAVING EACH SEQUENCE
     _pickleAttrs = SequenceDB._pickleAttrs.copy()
     _pickleAttrs['filepath'] = 0
@@ -896,7 +909,7 @@ class PrefixUnionDict(object, UserDict.DictMixin):
         if filename is not None: # READ UNION HEADER FILE
             if trypath is None: # DEFAULT: LOOK IN SAME DIRECTORY AS UNION HEADER
                 trypath=[os.path.dirname(filename)]
-            ifile=file(filename)
+            ifile=file(filename, 'rU') # text file
             it=iter(ifile)
             separator=it.next().strip('\r\n') # DROP TRAILING CR
             prefixDict={}
@@ -1001,7 +1014,7 @@ Set trypath to give a list of directories to search.'''
 
     def writeHeaderFile(self,filename):
         'save a header file for this union, to reopen later'
-        ifile=file(filename,'w')
+        ifile=file(filename,'w') # text file
         print >>ifile,self.separator
         for k,v in self.prefixDict.items():
             try:
