@@ -267,7 +267,9 @@ def getNameCursor(name=None, connect=None, configFile=None, **args):
     cursor = connect(**kwargs).cursor()
     return name,cursor
 
-_mysqlMacros = dict(IGNORE='ignore', REPLACE='replace')
+_mysqlMacros = dict(IGNORE='ignore', REPLACE='replace',
+                    AUTO_INCREMENT='AUTO_INCREMENT', SUBSTRING='substring',
+                    SUBSTR_FROM='FROM', SUBSTR_FOR='FOR')
 
 def mysql_table_schema(self, analyzeSchema=True):
     'retrieve table schema from a MySQL database, save on self'
@@ -299,12 +301,22 @@ def mysql_table_schema(self, analyzeSchema=True):
         self.description[field] = self.cursor.description[icol]
         self.columnType[field] = c[1] # SQL COLUMN TYPE
 
-_sqliteMacros = dict(IGNORE='or ignore', REPLACE='insert or replace')
+_sqliteMacros = dict(IGNORE='or ignore', REPLACE='insert or replace',
+                     AUTO_INCREMENT='', SUBSTRING='substr',
+                    SUBSTR_FROM=',', SUBSTR_FOR=',')
+
+def import_sqlite():
+    'import sqlite3 (for Python 2.5+) or pysqlite2 for earlier Python versions'
+    try:
+        import sqlite3 as sqlite
+    except ImportError:
+        from pysqlite2 import dbapi2 as sqlite
+    return sqlite
 
 def sqlite_table_schema(self, analyzeSchema=True):
     'retrieve table schema from a sqlite3 database, save on self'
-    import sqlite3
-    self._format_query = SQLFormatDict(sqlite3.paramstyle, _sqliteMacros)
+    sqlite = import_sqlite()
+    self._format_query = SQLFormatDict(sqlite.paramstyle, _sqliteMacros)
     if not analyzeSchema:
         return
     self.clear_schema() # reset settings and dictionaries
@@ -405,6 +417,7 @@ def get_table_schema(self, analyzeSchema=True):
 
 
 _schemaModuleDict = {'MySQLdb.cursors':mysql_table_schema,
+                     'pysqlite2.dbapi2':sqlite_table_schema,
                      'sqlite3':sqlite_table_schema}
 
 class SQLTableBase(object, UserDict.DictMixin):
@@ -428,11 +441,13 @@ class SQLTableBase(object, UserDict.DictMixin):
                 cursor = serverInfo.cursor()
             else: # try to read connection info from name or config file
                 name,cursor = getNameCursor(name,**kwargs)
+        self.cursor = cursor
         if createTable is not None: # RUN COMMAND TO CREATE THIS TABLE
             if dropIfExists: # get rid of any existing table
                 cursor.execute('drop table if exists ' + name)
-            cursor.execute(createTable)
-        self.cursor = cursor
+            self.get_table_schema(False) # check dbtype, init _format_query
+            sql,params = self._format_query(createTable, ()) # apply macros
+            cursor.execute(sql) # create the table
         self.name = name
         if graph is not None:
             self.graph = graph
