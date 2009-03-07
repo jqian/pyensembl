@@ -1,21 +1,21 @@
 import os, unittest
 from testlib import testutil, logger
 from pygr.sqlgraph import SQLTable,SQLTableNoCache,getNameCursor,\
-     MapView,GraphView,DBServerInfo
+     MapView,GraphView,DBServerInfo,import_sqlite
 
 class SQLTable_Setup(unittest.TestCase):
     tableClass = SQLTable
     def setUp(self):
         self.load_data(writeable=self.writeable)
     def load_data(self, cursor=None, tableName='test.sqltable_test',
-                  autoInc='AUTO_INCREMENT', writeable=False):
+                  writeable=False):
         'create 3 tables and load 9 rows for our tests'
         self.tableName = tableName
         self.joinTable1 = joinTable1 = tableName + '1'
         self.joinTable2 = joinTable2 = tableName + '2'
         createTable = """\
-        CREATE TABLE %s (primary_id INTEGER PRIMARY KEY %s, seq_id TEXT, start INTEGER, stop INTEGER)
-        """ % (tableName,autoInc)
+        CREATE TABLE %s (primary_id INTEGER PRIMARY KEY %%(AUTO_INCREMENT)s, seq_id TEXT, start INTEGER, stop INTEGER)
+        """ % tableName
         self.db = self.tableClass(tableName, cursor, dropIfExists=True,
                                   createTable=createTable,
                                   writeable=writeable)
@@ -132,26 +132,11 @@ class SQLTable_Test(SQLTable_Setup):
         assert self.targetDB[6] in d and self.targetDB[8] in d
         assert self.sourceDB[2] in m
 
-class SQLite_Mixin(object):
-    def setUp(self):
-        import sqlite3
-        self.sqlite_file = testutil.tempdatafile('test_sqlite.db')
-        self.tearDown(False) # delete the file if it exists
-        self.sqlite_db = sqlite3.connect(self.sqlite_file)
-        c = self.sqlite_db.cursor()
-        self.load_data(c, 'sqltable_test', autoInc='',
-                       writeable=self.writeable)
-    def tearDown(self, closeConnection=True):
-        'delete the sqlite db file after (optionally) closing connection'
-        if closeConnection:
-            self.db.cursor.close() # close the cursor
-            self.sqlite_db.close() # close the connection
-        try:
-            os.remove(self.sqlite_file)
-        except OSError:
-            pass
-        
-class SQLiteTable_Test(SQLite_Mixin, SQLTable_Test):
+class SQLiteBase(testutil.SQLite_Mixin):
+    def sqlite_load(self):
+        self.load_data(self.cursor, 'sqltable_test', writeable=self.writeable)
+
+class SQLiteTable_Test(SQLiteBase, SQLTable_Test):
     pass
 
 class SQLTable_NoCache_Test(SQLTable_Test):
@@ -222,7 +207,7 @@ class SQLTableRW_Test(SQLTable_Setup):
             pass
         
 
-class SQLiteTableRW_Test(SQLite_Mixin, SQLTableRW_Test):
+class SQLiteTableRW_Test(SQLiteBase, SQLTableRW_Test):
     pass
 
 class SQLTableRW_NoCache_Test(SQLTableRW_Test):
